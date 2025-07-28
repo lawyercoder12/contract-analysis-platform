@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import { AnalysisResult } from '../types';
 
-export type AppState = 'needs_model_selection' | 'needs_key' | 'idle' | 'loading' | 'success' | 'error';
+export type AppState = 'needs_model_selection' | 'needs_key' | 'idle' | 'loading' | 'success' | 'multi_success' | 'error';
 
 export interface UseAnalysisStateReturn {
   appState: AppState;

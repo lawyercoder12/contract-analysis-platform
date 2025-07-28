@@ -2,15 +2,37 @@ import React, { useCallback, useState } from 'react';
 import { UploadIcon } from './Icons';
 
 interface FileUploadProps {
-  onFileUpload: (file: File) => void;
+  onFileUpload: (files: File[]) => void;
+  maxFiles?: number;
+  existingFiles?: string[];
 }
 
-export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload }) => {
+export const FileUpload: React.FC<FileUploadProps> = ({ 
+  onFileUpload, 
+  maxFiles = 10,
+  existingFiles = []
+}) => {
   const [isDragging, setIsDragging] = useState(false);
 
   const handleFileChange = (files: FileList | null) => {
     if (files && files.length > 0) {
-      onFileUpload(files[0]);
+      const fileArray = Array.from(files);
+      const validFiles = fileArray.filter(file => {
+        // Check file type
+        const isValidType = file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || 
+                           file.name.toLowerCase().endsWith('.docx');
+        
+        // Check if file already exists
+        const isDuplicate = existingFiles.includes(file.name);
+        
+        return isValidType && !isDuplicate;
+      });
+
+      if (validFiles.length > 0) {
+        // Respect max files limit
+        const filesToUpload = validFiles.slice(0, maxFiles - existingFiles.length);
+        onFileUpload(filesToUpload);
+      }
     }
   };
 
@@ -60,15 +82,22 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload }) => {
         type="file"
         className="sr-only"
         accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        multiple
         onChange={onInputChange}
       />
       <label htmlFor="file-upload" className="cursor-pointer">
         <UploadIcon className="mx-auto h-12 w-12 text-gray-400 dark:text-cloud/60" />
         <span className="mt-2 block text-lg font-semibold text-gray-800 dark:text-cloud">
-          Upload a .docx file
+          Upload .docx files
         </span>
         <p className="mt-1 block text-sm text-gray-500 dark:text-cloud/60">
-          or drag and drop
+          or drag and drop multiple files
+        </p>
+        <p className="mt-2 text-xs text-gray-400 dark:text-cloud/50">
+          {existingFiles.length > 0 
+            ? `${existingFiles.length} files uploaded • ${maxFiles - existingFiles.length} remaining`
+            : `Up to ${maxFiles} files supported`
+          }
         </p>
       </label>
     </div>

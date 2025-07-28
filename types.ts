@@ -51,6 +51,7 @@ export interface Paragraph {
   clause: string;
   numLabel: string;
   level: number | null;
+  documentId: string;
   indent?: {
     left: string;
     hanging: string;
@@ -62,6 +63,7 @@ export interface Definition {
   term_canonical: string;
   def_text: string;
   paragraphId: string;
+  documentId: string;
   is_inline: boolean;
   issues: IssueType[];
 }
@@ -70,7 +72,8 @@ export interface Usage {
   token: string;
   canonical: string | null;
   sentence: string;
-  paragraphId:string;
+  paragraphId: string;
+  documentId: string;
   classification: Classification;
   def_locator: string | null;
   is_case_drift: boolean;
@@ -80,6 +83,7 @@ export interface Usage {
 export interface Suggestion {
     term: string;
     paragraphId: string;
+    documentId: string;
     sentence: string;
     reasoning: string;
 }
@@ -88,12 +92,24 @@ export interface CrossReference {
     token: string;
     sentence: string;
     paragraphId: string;
+    documentId: string;
 }
 
 export interface NumberingDiscrepancy {
     type: NumberingIssueType;
     paragraphId: string;
+    documentId: string;
     details: string;
+}
+
+export interface DocumentMetadata {
+  id: string;
+  name: string;
+  size: number;
+  uploadedAt: Date;
+  status: 'pending' | 'analyzing' | 'completed' | 'error';
+  progress?: string;
+  error?: string;
 }
 
 export interface AnalysisResult {
@@ -104,6 +120,13 @@ export interface AnalysisResult {
   crossReferences: CrossReference[];
   numberingDiscrepancies: NumberingDiscrepancy[];
   maxLevel: number;
+  documentId: string;
+}
+
+export interface MultiDocumentAnalysisResult {
+  documents: DocumentMetadata[];
+  results: Map<string, AnalysisResult>;
+  activeDocumentId: string | null;
 }
 
 // New grouped types for UI
@@ -112,12 +135,14 @@ export interface GroupedDefinition {
     allDefs: Definition[];
     allUsages: Usage[];
     issues: IssueType[];
+    documentIds: string[]; // Track which documents this term appears in
 }
 
 export interface UndefinedTermGroup {
     token: string;
     usages: Usage[];
     issues: IssueType[];
+    documentIds: string[]; // Track which documents this term appears in
 }
 
 export interface SummaryCounts {
@@ -128,6 +153,14 @@ export interface SummaryCounts {
     numberingDiscrepancies: number;
     issues: Record<IssueType, number>;
     totalIssues: number;
+    documentsAnalyzed: number;
+}
+
+export interface DocumentTab {
+    id: string;
+    name: string;
+    status: DocumentMetadata['status'];
+    hasResults: boolean;
 }
 
 

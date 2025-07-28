@@ -282,7 +282,7 @@ export class ContractAnalyzer {
     return `${(twips / TWIPS_PER_REM).toFixed(3)}rem`;
   }
 
-  private async parseDocx(file: File): Promise<{ paragraphs: Paragraph[], numberingDiscrepancies: NumberingDiscrepancy[], maxLevel: number }> {
+  private async parseDocx(file: File, documentId: string): Promise<{ paragraphs: Paragraph[], numberingDiscrepancies: NumberingDiscrepancy[], maxLevel: number }> {
     const zip = await JSZip.loadAsync(file);
     const documentXmlStr = await zip.file('word/document.xml')?.async('string');
     const numberingXmlStr = await zip.file('word/numbering.xml')?.async('string');
@@ -426,6 +426,7 @@ export class ContractAnalyzer {
                  discrepancies.push({
                     type: NumberingIssueType.Manual,
                     paragraphId: paragraphId,
+                    documentId: documentId,
                     details: `Potential manual numbering detected ('${text.match(manualNumRegex)![0].trim()}'). This number is plain text and will not update automatically, which can break cross-references.`
                 });
              }
@@ -433,7 +434,7 @@ export class ContractAnalyzer {
         
         const trimmedText = text.trim();
         if (trimmedText !== '' || numLabel !== '') {
-            paragraphs.push({ id: paragraphId, text: trimmedText, clause: '', numLabel, level, indent });
+            paragraphs.push({ id: paragraphId, text: trimmedText, clause: '', numLabel, level, documentId, indent });
             paragraphIdCounter++;
         }
     });
@@ -714,9 +715,9 @@ Instructions:
       return numA - numB;
   }
 
-  public async analyzeContract(file: File, onProgress: (message: string) => void): Promise<AnalysisResult> {
+  public async analyzeContract(file: File, documentId: string, onProgress: (message: string) => void): Promise<AnalysisResult> {
     onProgress('Step 1/5: Parsing document and checking numbering...');
-    const { paragraphs, numberingDiscrepancies, maxLevel } = await this.parseDocx(file);
+    const { paragraphs, numberingDiscrepancies, maxLevel } = await this.parseDocx(file, documentId);
     if (paragraphs.length === 0) {
         throw new AnalysisError("Could not parse any text or paragraphs from the document. The file might be empty, password-protected, or in an unsupported format.");
     }
@@ -740,7 +741,7 @@ Instructions:
     const definitionMap = new Map<string, Definition[]>();
     rawDefsByChunk.flat().forEach(rawDef => {
         if (!rawDef.term_canonical) return;
-        const def: Definition = { ...rawDef, issues: [] };
+        const def: Definition = { ...rawDef, documentId, issues: [] };
         const existing = definitionMap.get(def.term_canonical) || [];
         if (!existing.some(d => d.def_text === def.def_text && d.paragraphId === def.paragraphId)) {
             definitionMap.set(def.term_canonical, [...existing, def]);
@@ -820,13 +821,16 @@ Instructions:
     });
 
     const allDefinitions = Array.from(definitionMap.values()).flat();
-    const allCrossReferences = rawCrossReferencesByChunk.flat();
+    const allCrossReferences = rawCrossReferencesByChunk.flat().map(rawCrossRef => ({ ...rawCrossRef, documentId }));
     
     // Filter out suggestions for terms that are already defined as a safety measure
-    const allSuggestions = rawSuggestionsByChunk.flat().filter(s => !knownTermsLowercase.includes(s.term.toLowerCase()));
+    const allSuggestions = rawSuggestionsByChunk.flat()
+        .filter(s => !knownTermsLowercase.includes(s.term.toLowerCase()))
+        .map(rawSuggestion => ({ ...rawSuggestion, documentId }));
 
     let allUsages: Usage[] = rawUsagesByChunk.flat().map(rawUsage => ({
         ...rawUsage,
+        documentId,
         def_locator: null,
         issues: []
     }));
@@ -877,6 +881,6 @@ Instructions:
         }
     });
 
-    return { paragraphs, definitions: allDefinitions, usages: allUsages, suggestions: allSuggestions, crossReferences: allCrossReferences, numberingDiscrepancies, maxLevel };
+    return { paragraphs, definitions: allDefinitions, usages: allUsages, suggestions: allSuggestions, crossReferences: allCrossReferences, numberingDiscrepancies, maxLevel, documentId };
   }
 }
