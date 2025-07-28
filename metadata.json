@@ -1,0 +1,6 @@
+{
+  "name": "v0.11 - Name updated",
+  "description": "An experimental lab for AI-powered contract review tools. Upload a DOCX contract to analyze definitions, numbering, cross-references, and other potential issues with an interactive analysis view.",
+  "requestFramePermissions": [],
+  "prompt": ""
+}
