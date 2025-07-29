@@ -3,7 +3,7 @@ import { NumberingDiscrepancy } from '../types';
 
 interface NumberingTableProps {
     discrepancies: NumberingDiscrepancy[];
-    onViewParagraph: (paragraphId: string) => void;
+    onViewParagraph: (paragraphId: string, documentId?: string) => void;
 }
 
 export const NumberingTable: React.FC<NumberingTableProps> = ({ discrepancies, onViewParagraph }) => {
@@ -25,7 +25,7 @@ export const NumberingTable: React.FC<NumberingTableProps> = ({ discrepancies, o
                     className="hover:bg-gray-50 dark:hover:bg-midnight-light/50"
                 >
                     <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-mono sm:pl-6">
-                    <button onClick={() => onViewParagraph(d.paragraphId)} className="hover:underline text-teal dark:text-lilac transition-colors" title={`Go to Para ${paraNum}`}>
+                    <button onClick={() => onViewParagraph(d.paragraphId, d.documentId)} className="hover:underline text-teal dark:text-lilac transition-colors" title={`Go to Para ${paraNum}`}>
                         {`Para ${paraNum}`}
                     </button>
                     </td>

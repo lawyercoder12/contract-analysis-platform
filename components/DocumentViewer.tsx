@@ -155,7 +155,11 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({ isOpen, onClose,
                                 {p.numLabel}
                             </div>
                             <div className="flex-grow border-l-2 border-gray-200 dark:border-midnight-lighter pl-4">
-                                <HighlightedParagraph paragraph={p} definitions={definitions} usages={usages} suggestions={suggestions} crossReferences={crossReferences} termMap={termMap} />
+                                {p.html ? (
+                                    <div dangerouslySetInnerHTML={{ __html: p.html }} />
+                                ) : (
+                                    <HighlightedParagraph paragraph={p} definitions={definitions} usages={usages} suggestions={suggestions} crossReferences={crossReferences} termMap={termMap} />
+                                )}
                                 <div className="text-right text-xs text-gray-400 dark:text-cloud/60 mt-2 font-mono">
                                     {`Para ${parseInt(p.id.replace('para-', '')) + 1}`}
                                 </div>

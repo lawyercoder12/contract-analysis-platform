@@ -123,7 +123,8 @@ export const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ results, fileNam
       }
   }
 
-  const handleViewParagraph = useCallback((paragraphId: string | null) => {
+  const handleViewParagraph = useCallback((paragraphId: string | null, _documentId?: string) => {
+    // Note: documentId is ignored in single-document view since there's only one document
     setViewerTarget(paragraphId);
     setViewTrigger(v => v + 1);
     if (!isSplitView) {

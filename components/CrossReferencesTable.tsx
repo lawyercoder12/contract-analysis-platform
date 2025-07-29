@@ -3,7 +3,7 @@ import { CrossReference } from '../types';
 
 interface CrossReferencesTableProps {
     crossReferences: CrossReference[];
-    onViewParagraph: (paragraphId: string) => void;
+    onViewParagraph: (paragraphId: string, documentId?: string) => void;
 }
 
 export const CrossReferencesTable: React.FC<CrossReferencesTableProps> = ({ crossReferences, onViewParagraph }) => {
@@ -31,7 +31,7 @@ export const CrossReferencesTable: React.FC<CrossReferencesTableProps> = ({ cros
                     <em>"{cr.sentence}"</em>
                     </td>
                     <td className="whitespace-nowrap py-4 px-3 text-sm text-gray-500 dark:text-cloud/60 font-mono">
-                        <button onClick={() => onViewParagraph(cr.paragraphId)} className="hover:underline hover:text-teal dark:hover:text-lilac transition-colors" title={`Go to Para ${paraNum}`}>
+                        <button onClick={() => onViewParagraph(cr.paragraphId, cr.documentId)} className="hover:underline hover:text-teal dark:hover:text-lilac transition-colors" title={`Go to Para ${paraNum}`}>
                         {`Para ${paraNum}`}
                     </button>
                     </td>

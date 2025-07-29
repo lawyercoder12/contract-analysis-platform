@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { DocumentMetadata, AnalysisResult, GroupedDefinition, UndefinedTermGroup, SummaryCounts, IssueType, Classification, Usage, Definition, Suggestion, CrossReference } from '../types';
 import { DefinitionsTable } from './DefinitionsTable';
 import { UndefinedTable } from './UndefinedTable';
@@ -45,6 +45,7 @@ export const MultiDocumentResultsDisplay: React.FC<MultiDocumentResultsDisplayPr
   const [viewerTarget, setViewerTarget] = useState<string | null>(null);
   const [isSplitView, setIsSplitView] = useState(false);
   const [viewTrigger, setViewTrigger] = useState(0);
+  const [pendingParagraphId, setPendingParagraphId] = useState<string | null>(null);
   const [showDocumentList, setShowDocumentList] = useState(false);
 
   const completedDocuments = useMemo(() => {
@@ -201,19 +202,107 @@ export const MultiDocumentResultsDisplay: React.FC<MultiDocumentResultsDisplayPr
       if (isSplitView && combinedResults) {
         const def = combinedResults.definitions.find(d => d.term_canonical === term || d.term_raw === term);
         if (def) {
-          handleViewParagraph(def.paragraphId);
+          handleViewParagraph(def.paragraphId, def.documentId);
         }
       }
     }
   };
 
-  const handleViewParagraph = useCallback((paragraphId: string | null) => {
-    setViewerTarget(paragraphId);
-    setViewTrigger(v => v + 1);
-    if (!isSplitView) {
-      setIsViewerOpen(true);
+  const handleViewParagraph = useCallback((paragraphId: string | null, documentId?: string) => {
+    console.log('🔥 handleViewParagraph CALLED with paragraphId:', paragraphId, 'documentId:', documentId);
+    console.log('=== handleViewParagraph DEBUG ===');
+    console.log('paragraphId:', paragraphId);
+    console.log('documentId:', documentId);
+    console.log('viewScope:', viewScope);
+    console.log('activeDocumentId:', activeDocumentId);
+    console.log('completedDocuments:', completedDocuments.map(d => ({ id: d.id, name: d.name })));
+    
+    if (!paragraphId) {
+      console.log('No paragraphId, clearing viewer');
+      setPendingParagraphId(null);
+      setViewerTarget(paragraphId);
+      setViewTrigger(v => v + 1);
+      if (!isSplitView) {
+        setIsViewerOpen(true);
+      }
+      return;
     }
-  }, [isSplitView]);
+
+    // Determine target document ID
+    let targetDocumentId: string | null = null;
+    
+    if (documentId) {
+      // If documentId is provided directly, use it
+      targetDocumentId = documentId;
+      console.log('Using provided documentId:', targetDocumentId);
+    } else {
+      // Fallback to old logic for backward compatibility
+      if (viewScope === 'active' && activeResult) {
+        // In active view, check if paragraph exists in active document
+        const paragraphExists = activeResult.paragraphs.some(p => p.id === paragraphId);
+        console.log('Active view - paragraphExists:', paragraphExists);
+        if (paragraphExists) {
+          targetDocumentId = activeDocumentId;
+        }
+      } else if (viewScope === 'all') {
+        // In all documents view, find which document contains this paragraph
+        for (const doc of completedDocuments) {
+          const result = results.get(doc.id);
+          const paragraphExists = result?.paragraphs.some(p => p.id === paragraphId);
+          console.log(`Checking doc ${doc.id}: paragraphExists = ${paragraphExists}`);
+          if (paragraphExists) {
+            targetDocumentId = doc.id;
+            console.log('Found paragraph in document:', doc.id);
+            break;
+          }
+        }
+      }
+    }
+    
+    console.log('targetDocumentId:', targetDocumentId);
+    console.log('current activeDocumentId:', activeDocumentId);
+    
+    // If we need to switch documents
+    if (targetDocumentId && targetDocumentId !== activeDocumentId) {
+      console.log('Switching to document:', targetDocumentId);
+      // Store the paragraph ID to be handled after document switch
+      setPendingParagraphId(paragraphId);
+      onSetActiveDocument(targetDocumentId);
+    } else {
+      console.log('No document switch needed or targetDocumentId not found');
+      // No document switch needed, set viewer target immediately
+      setPendingParagraphId(null);
+      setViewerTarget(paragraphId);
+      setViewTrigger(v => v + 1);
+      if (!isSplitView) {
+        setIsViewerOpen(true);
+      }
+    }
+  }, [viewScope, activeDocumentId, activeResult, completedDocuments, onSetActiveDocument, isSplitView]);
+
+  // Handle pending paragraph navigation after document switch
+  useEffect(() => {
+    if (pendingParagraphId && activeDocumentId && activeResult) {
+      console.log('🔥 useEffect: Handling pending paragraph after document switch');
+      console.log('pendingParagraphId:', pendingParagraphId);
+      console.log('new activeDocumentId:', activeDocumentId);
+      console.log('activeResult available:', !!activeResult);
+      
+      // Use setTimeout to ensure state has fully settled
+      const timeoutId = setTimeout(() => {
+        console.log('🔥 useEffect: Setting viewer target after timeout');
+        // Clear the pending paragraph and set the viewer target
+        setPendingParagraphId(null);
+        setViewerTarget(pendingParagraphId);
+        setViewTrigger(v => v + 1);
+        if (!isSplitView) {
+          setIsViewerOpen(true);
+        }
+      }, 100);
+      
+      return () => clearTimeout(timeoutId);
+    }
+  }, [activeDocumentId, pendingParagraphId, isSplitView, activeResult]);
   
   const handleToggleSplitView = useCallback(() => {
     setIsSplitView(prevIsSplit => {
@@ -271,6 +360,8 @@ export const MultiDocumentResultsDisplay: React.FC<MultiDocumentResultsDisplayPr
           onClose={() => setSelectedTerm(null)}
           onViewParagraph={handleViewParagraph}
           isInline={true}
+          documents={completedDocuments.map(d => ({ id: d.id, name: d.name }))}
+          showDocumentInfo={viewScope === 'all' && completedDocuments.length > 1}
         />
       );
     }
@@ -361,7 +452,7 @@ export const MultiDocumentResultsDisplay: React.FC<MultiDocumentResultsDisplayPr
         {/* View Document Button */}
         {!isSplitView && combinedResults && (
           <button
-            onClick={() => handleViewParagraph(combinedResults.paragraphs.length > 0 ? combinedResults.paragraphs[0].id : null)}
+            onClick={() => handleViewParagraph(combinedResults.paragraphs.length > 0 ? combinedResults.paragraphs[0].id : null, combinedResults.paragraphs.length > 0 ? combinedResults.paragraphs[0].documentId : undefined)}
             className="px-4 py-2 bg-gray-100 dark:bg-midnight-lighter text-gray-800 dark:text-cloud font-semibold rounded-md hover:bg-gray-200 dark:hover:bg-midnight-light transition-colors text-sm"
           >
             View Document{viewScope === 'all' ? 's' : ''}
@@ -501,7 +592,7 @@ export const MultiDocumentResultsDisplay: React.FC<MultiDocumentResultsDisplayPr
         
         <SummaryChips counts={summaryCounts} activeFilters={activeFilters} onFilterToggle={handleFilterToggle} />
         
-        <div className="flex-grow min-h-0 flex flex-col lg:flex-row gap-8">
+        <div className="flex-grow min-h-0 flex flex-col lg:flex-row gap-8 relative">
           <div className={`w-full min-w-0 flex flex-col ${showUsagePanel ? 'lg:w-2/3' : 'lg:w-full'}`}>
             <div className="border-b border-gray-200 dark:border-midnight-lighter flex-shrink-0">
               <nav className="-mb-px flex space-x-8 overflow-x-auto" aria-label="Tabs">
@@ -523,14 +614,18 @@ export const MultiDocumentResultsDisplay: React.FC<MultiDocumentResultsDisplayPr
           </div>
           
           {showUsagePanel && combinedResults && (
-            <UsagePanel
-              selectedTerm={selectedTerm}
-              allUsages={combinedResults.usages}
-              allDefinitions={combinedResults.definitions}
-              paragraphs={combinedResults.paragraphs}
-              onClose={() => setSelectedTerm(null)}
-              onViewParagraph={handleViewParagraph}
-            />
+            <div className="lg:w-1/3 xl:w-2/5 flex-shrink-0 lg:sticky lg:top-20 lg:h-full lg:max-h-[calc(100vh-280px)]">
+              <UsagePanel
+                selectedTerm={selectedTerm}
+                allUsages={combinedResults.usages}
+                allDefinitions={combinedResults.definitions}
+                paragraphs={combinedResults.paragraphs}
+                onClose={() => setSelectedTerm(null)}
+                onViewParagraph={handleViewParagraph}
+                documents={completedDocuments.map(d => ({ id: d.id, name: d.name }))}
+                showDocumentInfo={viewScope === 'all' && completedDocuments.length > 1}
+              />
+            </div>
           )}
         </div>
       </div>

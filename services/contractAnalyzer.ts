@@ -283,174 +283,26 @@ export class ContractAnalyzer {
   }
 
   private async parseDocx(file: File, documentId: string): Promise<{ paragraphs: Paragraph[], numberingDiscrepancies: NumberingDiscrepancy[], maxLevel: number }> {
-    const zip = await JSZip.loadAsync(file);
-    const documentXmlStr = await zip.file('word/document.xml')?.async('string');
-    const numberingXmlStr = await zip.file('word/numbering.xml')?.async('string');
-
-    if (!documentXmlStr) {
-        throw new AnalysisError('Could not find document.xml in the docx file. The file might be corrupted or not a valid .docx file.');
-    }
-    
-    const parser = new DOMParser();
-    const docXml = parser.parseFromString(documentXmlStr, "application/xml");
-    const pNodes = Array.from(docXml.getElementsByTagName('w:p'));
-    
-    // Step 1: Parse all numbering definitions from numbering.xml
-    const abstractNums = new Map<string, { levels: Map<string, any> }>();
-    const numIdToAbstractIdMap = new Map<string, { abstractNumId: string; overrides: Map<string, number> }>();
-    if (numberingXmlStr) {
-        const numberingXml = parser.parseFromString(numberingXmlStr, "application/xml");
-        Array.from(numberingXml.getElementsByTagName('w:abstractNum')).forEach(node => {
-            const abstractNumId = node.getAttribute('w:abstractNumId');
-            if (!abstractNumId) return;
-            const levels = new Map();
-            Array.from(node.getElementsByTagName('w:lvl')).forEach(lvlNode => {
-                const ilvl = lvlNode.getAttribute('w:ilvl');
-                if (!ilvl) return;
-                const indNode = lvlNode.querySelector('pPr > ind');
-                levels.set(ilvl, {
-                    numFmt: lvlNode.querySelector('numFmt')?.getAttribute('w:val') || 'decimal',
-                    lvlText: lvlNode.querySelector('lvlText')?.getAttribute('w:val') || `%${parseInt(ilvl,10)+1}.`,
-                    start: lvlNode.querySelector('start')?.getAttribute('w:val') || '1',
-                    left: parseInt(indNode?.getAttribute('w:left') || '0', 10),
-                    hanging: parseInt(indNode?.getAttribute('w:hanging') || '0', 10)
-                });
-            });
-            abstractNums.set(abstractNumId, { levels });
-        });
-        Array.from(numberingXml.getElementsByTagName('w:num')).forEach(node => {
-            const numId = node.getAttribute('w:numId');
-            const abstractNumId = node.querySelector('abstractNumId')?.getAttribute('w:val');
-            if (numId && abstractNumId) {
-                const overrides = new Map<string, number>();
-                Array.from(node.getElementsByTagName('w:lvlOverride')).forEach(overrideNode => {
-                    const ilvl = overrideNode.getAttribute('w:ilvl');
-                    const startOverride = overrideNode.querySelector('startOverride')?.getAttribute('w:val');
-                    if (ilvl && startOverride) {
-                        overrides.set(ilvl, parseInt(startOverride, 10));
-                    }
-                });
-                numIdToAbstractIdMap.set(numId, { abstractNumId, overrides });
-            }
-        });
-    }
-
-    // --- Ground-up Rewrite of Numbering Logic ---
-    const paragraphs: Paragraph[] = [];
-    const discrepancies: NumberingDiscrepancy[] = [];
-    const listStates = new Map<string, { counters: number[], lastLevel: number }>();
-    let lastAbstractNumId: string | null = null;
-    
-    const manualNumRegex = /^\s*(\d+(\.\d+)*\.?|\([a-zA-Z\d]+\)|[a-zA-Z]\.)\s+/;
-    let paragraphIdCounter = 0;
-
-    pNodes.forEach((pNode) => {
-        const text = Array.from(pNode.getElementsByTagName('w:t')).map(t => t.textContent).join('');
-        const paragraphId = `para-${paragraphIdCounter}`;
-        let numLabel = '';
-        let level: number | null = null;
-        let indent: Paragraph['indent'] | undefined = undefined;
-
-        const pPr = pNode.querySelector('pPr');
-        const numPr = pPr?.querySelector('numPr');
-
-        if (numPr) {
-            const numId = numPr.querySelector('numId')?.getAttribute('w:val');
-            const ilvlStr = numPr.querySelector('ilvl')?.getAttribute('w:val');
-            const numDef = numId ? numIdToAbstractIdMap.get(numId) : undefined;
-            const currentAbstractNumId = numDef?.abstractNumId;
-
-            if (currentAbstractNumId && ilvlStr) {
-                level = parseInt(ilvlStr, 10);
-                const abstractDef = abstractNums.get(currentAbstractNumId);
-                
-                if (abstractDef) {
-                    // Check if this is a new list sequence or a switch in list style
-                    if (currentAbstractNumId !== lastAbstractNumId) {
-                        // If we haven't seen this list style's state before, initialize it.
-                        if (!listStates.has(currentAbstractNumId)) {
-                            const initialCounters = Array(10).fill(0);
-                            for (let i = 0; i < 10; i++) {
-                                const lDef = abstractDef.levels.get(String(i));
-                                const start = parseInt(lDef?.start || '1', 10);
-                                
-                                // Use any <w:lvlOverride> start value if it exists for this list instance
-                                const startOverride = numDef?.overrides.get(String(i));
-                                const effectiveStart = startOverride ?? start;
-                                
-                                // store start-1 so first ++ lands on start
-                                initialCounters[i] = effectiveStart - 1;
-                            }
-                            listStates.set(currentAbstractNumId, { counters: initialCounters, lastLevel: -1 });
-                        }
-                    }
-                    
-                    const listState = listStates.get(currentAbstractNumId)!;
-                    
-                    // --- State Transition Logic ---
-                    if (level > listState.lastLevel) {
-                        // Nesting deeper. Increment the counter on first use at this level.
-                        listState.counters[level]++;
-                    } else if (level < listState.lastLevel) {
-                         // Un-nesting. Increment the counter at the new, shallower level.
-                        listState.counters[level]++;
-                    } else { // level === listState.lastLevel
-                        // Continuing at the same level.
-                        listState.counters[level]++;
-                    }
-
-                    // Reset counters for levels deeper than the current one
-                    for (let i = level + 1; i < 10; i++) {
-                       const deeperLvlDef = abstractDef.levels.get(String(i));
-                       // Reset to start - 1, to be incremented on next use.
-                       listState.counters[i] = parseInt(deeperLvlDef?.start || '1', 10) - 1;
-                    }
-                                        
-                    const lvlDef = abstractDef.levels.get(ilvlStr);
-                    if (lvlDef) {
-                        indent = { left: this.twipsToRem(lvlDef.left), hanging: this.twipsToRem(lvlDef.hanging) };
-                        numLabel = this.formatLabel(lvlDef.lvlText, listState.counters, level, abstractDef);
-                    }
-
-                    // Update state for the next iteration
-                    listState.lastLevel = level;
-                    lastAbstractNumId = currentAbstractNumId;
-                } else {
-                     lastAbstractNumId = null; // Missing abstract number definition, break continuity.
-                }
-            }
-        } else {
-            // This is not a numbered paragraph, so it breaks any list sequence.
-            lastAbstractNumId = null;
-            if (manualNumRegex.test(text)) {
-                 discrepancies.push({
-                    type: NumberingIssueType.Manual,
-                    paragraphId: paragraphId,
-                    documentId: documentId,
-                    details: `Potential manual numbering detected ('${text.match(manualNumRegex)![0].trim()}'). This number is plain text and will not update automatically, which can break cross-references.`
-                });
-             }
-        }
-        
-        const trimmedText = text.trim();
-        if (trimmedText !== '' || numLabel !== '') {
-            paragraphs.push({ id: paragraphId, text: trimmedText, clause: '', numLabel, level, documentId, indent });
-            paragraphIdCounter++;
-        }
+    // Use Aspose backend for parsing
+    const formData = new FormData();
+    formData.append('file', file, file.name);
+    const response = await fetch('http://localhost:5192/parse-docx', {
+      method: 'POST',
+      body: formData
     });
-    
-    // Assign clause numbers
-    let currentClause = "Preamble";
-    for (const p of paragraphs) {
-        if (p.numLabel) {
-            currentClause = p.numLabel;
-        }
-        p.clause = currentClause;
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new AnalysisError(`Backend parse failed: ${errorText}`);
     }
-
-    const maxLevel = Math.max(0, ...paragraphs.map(p => p.level ?? -1));
-    return { paragraphs, numberingDiscrepancies: discrepancies, maxLevel };
-}
+    const data = await response.json();
+    // The backend returns { paragraphs, crossReferences }
+    // You may need to adapt this to your expected structure
+    return {
+      paragraphs: data.paragraphs || [],
+      numberingDiscrepancies: [], // TODO: backend can be extended to return this
+      maxLevel: 0 // TODO: backend can be extended to return this
+    };
+  }
 
 
   private async processInBatches<T, R>(

@@ -8,11 +8,23 @@ interface UsagePanelProps {
     allDefinitions: Definition[];
     paragraphs: Paragraph[];
     onClose: () => void;
-    onViewParagraph: (paragraphId: string) => void;
+    onViewParagraph: (paragraphId: string, documentId?: string) => void;
     isInline?: boolean;
+    documents?: { id: string; name: string }[];
+    showDocumentInfo?: boolean;
 }
 
-export const UsagePanel: React.FC<UsagePanelProps> = ({ selectedTerm, allUsages, allDefinitions, paragraphs, onClose, onViewParagraph, isInline = false }) => {
+export const UsagePanel: React.FC<UsagePanelProps> = ({ 
+    selectedTerm, 
+    allUsages, 
+    allDefinitions, 
+    paragraphs, 
+    onClose, 
+    onViewParagraph, 
+    isInline = false,
+    documents = [],
+    showDocumentInfo = false
+}) => {
     if (!selectedTerm) return null;
 
     const [isDefExpanded, setIsDefExpanded] = useState(false);
@@ -20,6 +32,12 @@ export const UsagePanel: React.FC<UsagePanelProps> = ({ selectedTerm, allUsages,
     const relevantUsages = allUsages.filter(u => u.canonical === selectedTerm || u.token === selectedTerm);
     const primaryDefinition = allDefinitions.find(d => d.term_canonical === selectedTerm);
     const primaryPara = primaryDefinition ? paragraphs.find(p => p.id === primaryDefinition.paragraphId) : null;
+
+    // Get document names for this usage panel
+    const getDocumentName = (documentId: string) => {
+        const doc = documents.find(d => d.id === documentId);
+        return doc ? doc.name : `Document ${documentId}`;
+    };
 
     const highlightTerm = (sentence: string, term: string) => {
         // Guard against undefined or empty sentence/term to prevent crashes.
@@ -65,7 +83,7 @@ export const UsagePanel: React.FC<UsagePanelProps> = ({ selectedTerm, allUsages,
     
     const containerClasses = isInline
         ? "flex flex-col h-full bg-white dark:bg-midnight"
-        : "w-full lg:w-1/3 xl:w-2/5 flex-shrink-0 bg-gray-50/80 dark:bg-midnight-light/80 backdrop-blur-sm border-l border-gray-200 dark:border-midnight-lighter p-6 flex flex-col rounded-lg";
+        : "w-full h-full bg-gray-50/80 dark:bg-midnight-light/80 backdrop-blur-sm border-l border-gray-200 dark:border-midnight-lighter p-6 flex flex-col rounded-lg";
 
 
     return (
@@ -92,12 +110,17 @@ export const UsagePanel: React.FC<UsagePanelProps> = ({ selectedTerm, allUsages,
                     </div>
                      <div className="text-xs text-gray-500 dark:text-cloud/60 mt-2">Defined in:
                         <button 
-                            onClick={() => onViewParagraph(primaryDefinition.paragraphId)} 
+                            onClick={() => onViewParagraph(primaryDefinition.paragraphId, primaryDefinition.documentId)} 
                             className="ml-1 font-mono text-teal dark:text-lilac hover:underline"
                             title={`Go to Para ${parseInt(primaryDefinition.paragraphId.replace('para-',''))+1}`}
                         >
                            {`Para ${parseInt(primaryDefinition.paragraphId.replace('para-',''))+1}`}
                         </button>
+                        {showDocumentInfo && (
+                            <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300">
+                                {getDocumentName(primaryDefinition.documentId)}
+                            </span>
+                        )}
                      </div>
                 </div>
             )}
@@ -108,9 +131,16 @@ export const UsagePanel: React.FC<UsagePanelProps> = ({ selectedTerm, allUsages,
                     return (
                         <div key={index} className="text-sm text-gray-700 dark:text-cloud/80 p-3 bg-white dark:bg-midnight-light/50 rounded-md border border-gray-200/80 dark:border-midnight-lighter/50">
                            <p className="leading-relaxed">{highlightTerm(usage.sentence, usage.token)}</p>
-                           <button onClick={() => onViewParagraph(usage.paragraphId)} className="text-xs text-teal dark:text-lilac hover:underline mt-2 float-right font-mono" title={`Go to Para ${paraNum}`}>
-                               {`Para ${paraNum}`}
-                           </button>
+                           <div className="flex justify-between items-center mt-2">
+                               <button onClick={() => onViewParagraph(usage.paragraphId, usage.documentId)} className="text-xs text-teal dark:text-lilac hover:underline font-mono" title={`Go to Para ${paraNum}`}>
+                                   {`Para ${paraNum}`}
+                               </button>
+                               {showDocumentInfo && (
+                                   <span className="text-xs text-gray-500 dark:text-cloud/60">
+                                       {getDocumentName(usage.documentId)}
+                                   </span>
+                               )}
+                           </div>
                         </div>
                     );
                 })}

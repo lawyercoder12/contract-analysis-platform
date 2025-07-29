@@ -4,7 +4,7 @@ import { IssueBadge } from './IssueBadge';
 
 interface SuggestionsTableProps {
     suggestions: Suggestion[];
-    onViewParagraph: (paragraphId: string) => void;
+    onViewParagraph: (paragraphId: string, documentId?: string) => void;
 }
 
 export const SuggestionsTable: React.FC<SuggestionsTableProps> = ({ suggestions, onViewParagraph }) => {
@@ -37,7 +37,7 @@ export const SuggestionsTable: React.FC<SuggestionsTableProps> = ({ suggestions,
                     <em>"{suggestion.sentence}"</em>
                     </td>
                     <td className="whitespace-nowrap py-4 px-3 text-sm text-gray-500 dark:text-cloud/60 font-mono">
-                        <button onClick={() => onViewParagraph(suggestion.paragraphId)} className="hover:underline hover:text-teal dark:hover:text-lilac transition-colors" title={`Go to Para ${paraNum}`}>
+                        <button onClick={() => onViewParagraph(suggestion.paragraphId, suggestion.documentId)} className="hover:underline hover:text-teal dark:hover:text-lilac transition-colors" title={`Go to Para ${paraNum}`}>
                         {`Para ${paraNum}`}
                     </button>
                     </td>

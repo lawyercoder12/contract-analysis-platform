@@ -6,7 +6,7 @@ interface UndefinedTableProps {
     terms: UndefinedTermGroup[];
     onSelectTerm: (term: string) => void;
     selectedTerm: string | null;
-    onViewParagraph: (paragraphId: string) => void;
+    onViewParagraph: (paragraphId: string, documentId?: string) => void;
 }
 
 export const UndefinedTable: React.FC<UndefinedTableProps> = ({ terms, onSelectTerm, selectedTerm, onViewParagraph }) => {
@@ -34,7 +34,7 @@ export const UndefinedTable: React.FC<UndefinedTableProps> = ({ terms, onSelectT
                     <td className="whitespace-nowrap py-4 px-3 text-sm font-medium text-yellow-600 dark:text-yellow-300">{group.token}</td>
                     <td className="whitespace-nowrap py-4 px-3 text-sm text-gray-700 dark:text-cloud/80 text-center">{group.usages.length}</td>
                     <td className="whitespace-nowrap py-4 px-3 text-sm text-gray-500 dark:text-cloud/60 font-mono">
-                        <button onClick={(e) => { e.stopPropagation(); onViewParagraph(firstUsage.paragraphId); }} className="hover:underline hover:text-teal dark:hover:text-lilac transition-colors" title={`Go to Para ${paraNum}`}>
+                        <button onClick={(e) => { e.stopPropagation(); onViewParagraph(firstUsage.paragraphId, firstUsage.documentId); }} className="hover:underline hover:text-teal dark:hover:text-lilac transition-colors" title={`Go to Para ${paraNum}`}>
                         {`Para ${paraNum}`}
                     </button>
                     </td>

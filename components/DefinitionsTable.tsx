@@ -9,7 +9,7 @@ interface DefinitionsTableProps {
   paragraphs: Paragraph[];
   onSelectTerm: (canonical: string) => void;
   selectedTerm: string | null;
-  onViewParagraph: (paragraphId: string) => void;
+  onViewParagraph: (paragraphId: string, documentId?: string) => void;
   isSplitView: boolean;
   documents?: { id: string; name: string }[];
   showDocumentInfo?: boolean;
@@ -20,7 +20,7 @@ interface DefinitionRowProps {
     paragraphs: Paragraph[];
     onSelectTerm: (c:string) => void;
     isSelected: boolean;
-    onViewParagraph: (id: string) => void;
+    onViewParagraph: (id: string, documentId?: string) => void;
     isSplitView: boolean;
     documents?: { id: string; name: string }[];
     showDocumentInfo?: boolean;
@@ -108,7 +108,16 @@ const DefinitionRow: React.FC<DefinitionRowProps> = ({ group, paragraphs, onSele
                 )}
               </td>
               <td className="whitespace-nowrap py-4 px-3 text-sm text-gray-500 dark:text-cloud/60 font-mono">
-                  <button onClick={(e) => { e.stopPropagation(); onViewParagraph(primaryDef.paragraphId); }} className="hover:underline hover:text-teal dark:hover:text-lilac transition-colors" title={`Go to Para ${primaryParaNum}`}>
+                  <button 
+                    onClick={(e) => { 
+                      console.log('🔥 DefinitionsTable: Primary link clicked!');
+                      console.log('🔥 paragraphId:', primaryDef.paragraphId);
+                      e.stopPropagation(); 
+                      onViewParagraph(primaryDef.paragraphId, primaryDef.documentId); 
+                    }} 
+                    className="hover:underline hover:text-teal dark:hover:text-lilac transition-colors" 
+                    title={`Go to Para ${primaryParaNum}`}
+                  >
                       {`Para ${primaryParaNum}`}
                   </button>
               </td>
@@ -168,7 +177,12 @@ const DefinitionRow: React.FC<DefinitionRowProps> = ({ group, paragraphs, onSele
                                                         </span>
                                                     )}
                                                 </div>
-                                                <button onClick={(e) => { e.stopPropagation(); onViewParagraph(def.paragraphId); }} className="font-mono text-teal dark:text-lilac hover:underline" title={`Go to Para ${paraNum} in document viewer`}>
+                                                <button onClick={(e) => { 
+                                                  console.log('🔥 DefinitionsTable: Expanded link clicked!');
+                                                  console.log('🔥 paragraphId:', def.paragraphId);
+                                                  e.stopPropagation(); 
+                                                  onViewParagraph(def.paragraphId, def.documentId); 
+                                                }} className="font-mono text-teal dark:text-lilac hover:underline" title={`Go to Para ${paraNum} in document viewer`}>
                                                     View in Document &rarr;
                                                 </button>
                                             </div>
@@ -186,6 +200,10 @@ const DefinitionRow: React.FC<DefinitionRowProps> = ({ group, paragraphs, onSele
 
 
 export const DefinitionsTable: React.FC<DefinitionsTableProps> = ({ definitions, paragraphs, onSelectTerm, selectedTerm, onViewParagraph, isSplitView, documents = [], showDocumentInfo = false }) => {
+  console.log('🔥 DefinitionsTable: Component rendered');
+  console.log('🔥 definitions count:', definitions.length);
+  console.log('🔥 onViewParagraph function:', typeof onViewParagraph);
+  
   return (
       <table className="w-full divide-y divide-gray-200 dark:divide-midnight-lighter border-separate border-spacing-0 table-fixed">
         <thead className="bg-gray-50 dark:bg-midnight-light sticky top-0 z-10">
