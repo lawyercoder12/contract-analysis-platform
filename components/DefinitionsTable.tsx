@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { GroupedDefinition, Paragraph, Definition } from '../types';
 import { IssueBadge } from './IssueBadge';
 import { ChevronDownIcon, PlusCircleIcon, MinusCircleIcon } from './Icons';
@@ -26,7 +26,7 @@ interface DefinitionRowProps {
     showDocumentInfo?: boolean;
 }
 
-const DefinitionRow: React.FC<DefinitionRowProps> = ({ group, paragraphs, onSelectTerm, isSelected, onViewParagraph, isSplitView, documents = [], showDocumentInfo = false }) => {
+const DefinitionRow: React.FC<DefinitionRowProps & { onExpandChange: (expanded: boolean) => void }> = ({ group, paragraphs, onSelectTerm, isSelected, onViewParagraph, isSplitView, documents = [], showDocumentInfo = false, onExpandChange }) => {
     const [isExpanded, setIsExpanded] = useState(false);
     const primaryDef = group.allDefs[0];
     const primaryParaNum = parseInt(primaryDef.paragraphId.replace('para-', '')) + 1;
@@ -65,6 +65,14 @@ const DefinitionRow: React.FC<DefinitionRowProps> = ({ group, paragraphs, onSele
         }
     };
 
+    const handleExpandToggle = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        setIsExpanded(prev => {
+            onExpandChange(!prev);
+            return !prev;
+        });
+    };
+
     return (
         <>
             <tr className={`cursor-pointer hover:bg-gray-50 dark:hover:bg-midnight-light/50 ${isSelected ? 'bg-teal-50 dark:bg-lilac/20' : ''}`} onClick={() => onSelectTerm(group.canonical)}>
@@ -93,10 +101,7 @@ const DefinitionRow: React.FC<DefinitionRowProps> = ({ group, paragraphs, onSele
                       {primaryDef.def_text}
                     </p>
                     <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setIsExpanded(!isExpanded);
-                      }}
+                      onClick={handleExpandToggle}
                       className="flex-shrink-0 text-gray-400 hover:text-gray-500 dark:text-cloud/60 dark:hover:text-cloud/80 p-0.5 mt-0.5"
                       aria-expanded={isExpanded}
                       aria-label={isExpanded ? 'Collapse definition' : 'Expand definition'}
@@ -205,12 +210,17 @@ const DefinitionRow: React.FC<DefinitionRowProps> = ({ group, paragraphs, onSele
 
 
 export const DefinitionsTable: React.FC<DefinitionsTableProps> = ({ definitions, paragraphs, onSelectTerm, selectedTerm, onViewParagraph, isSplitView, documents = [], showDocumentInfo = false }) => {
+  const [anyExpanded, setAnyExpanded] = useState(false);
+  const handleExpandChange = useCallback((expanded: boolean) => {
+    setAnyExpanded(expanded);
+  }, []);
+
   console.log('🔥 DefinitionsTable: Component rendered');
   console.log('🔥 definitions count:', definitions.length);
   console.log('🔥 onViewParagraph function:', typeof onViewParagraph);
   
   return (
-      <table className="w-full divide-y divide-gray-200 dark:divide-midnight-lighter border-separate border-spacing-0 table-auto sm:table-fixed">
+      <table className={`w-full divide-y divide-gray-200 dark:divide-midnight-lighter border-separate border-spacing-0 ${anyExpanded ? 'table-fixed' : 'table-auto'}`}>
         <thead className="bg-gray-50 dark:bg-midnight-light sticky top-0 z-10">
           <tr>
             {!isSplitView && (
@@ -225,6 +235,14 @@ export const DefinitionsTable: React.FC<DefinitionsTableProps> = ({ definitions,
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-200 dark:divide-midnight-light bg-white dark:bg-midnight">
+          {/* Ghost row to preserve column widths and prevent resizing on expand */}
+          <tr className="invisible h-0 p-0">
+            {!isSplitView && <td>Expand</td>}
+            <td>LongestTermExample</td>
+            <td>Longest possible definition text that might appear in the table for sizing</td>
+            <td>Details</td>
+            <td>Issues</td>
+          </tr>
           {definitions.map((group) => (
             <DefinitionRow 
                 key={group.canonical} 
@@ -236,6 +254,7 @@ export const DefinitionsTable: React.FC<DefinitionsTableProps> = ({ definitions,
                 isSplitView={isSplitView}
                 documents={documents}
                 showDocumentInfo={showDocumentInfo}
+                onExpandChange={handleExpandChange}
             />
           ))}
         </tbody>
