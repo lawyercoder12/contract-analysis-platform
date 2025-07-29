@@ -286,6 +286,7 @@ export class ContractAnalyzer {
     // Use Aspose backend for parsing
     const formData = new FormData();
     formData.append('file', file, file.name);
+    formData.append('documentId', documentId);
     const response = await fetch('http://localhost:5192/parse-docx', {
       method: 'POST',
       body: formData
@@ -295,12 +296,24 @@ export class ContractAnalyzer {
       throw new AnalysisError(`Backend parse failed: ${errorText}`);
     }
     const data = await response.json();
-    // The backend returns { paragraphs, crossReferences }
-    // You may need to adapt this to your expected structure
+    // The backend now returns { paragraphs, numberingDiscrepancies, maxLevel }
+    const numberingDiscrepancies: NumberingDiscrepancy[] = (data.numberingDiscrepancies || []).map((disc: any) => ({
+      type: disc.type as NumberingIssueType,
+      paragraphId: disc.paragraphId,
+      documentId: disc.documentId,
+      details: disc.details
+    }));
+    
+    // Ensure all paragraphs have the correct documentId
+    const paragraphs: Paragraph[] = (data.paragraphs || []).map((para: any) => ({
+      ...para,
+      documentId: documentId // Ensure consistent documentId
+    }));
+    
     return {
-      paragraphs: data.paragraphs || [],
-      numberingDiscrepancies: [], // TODO: backend can be extended to return this
-      maxLevel: 0 // TODO: backend can be extended to return this
+      paragraphs,
+      numberingDiscrepancies,
+      maxLevel: data.maxLevel || 0
     };
   }
 

@@ -80,15 +80,16 @@ const DefinitionRow: React.FC<DefinitionRowProps> = ({ group, paragraphs, onSele
                       </button>
                   </td>
               )}
-              <td className={isSplitView ? "whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-teal dark:text-lilac sm:pl-6" : "whitespace-nowrap py-4 px-3 text-sm font-medium text-teal dark:text-lilac"}>{group.canonical}</td>
               <td className="py-4 px-3 text-sm text-gray-700 dark:text-cloud/80">
-                <code className="bg-gray-100 dark:bg-midnight-light rounded px-1.5 py-0.5">{primaryDef.term_raw}</code>
-                {group.allDefs.length > 1 && <span className="text-xs text-gray-500 dark:text-cloud/40 ml-2">({group.allDefs.length} versions)</span>}
+                <div className="flex flex-col gap-1">
+                  <code className="bg-gray-100 dark:bg-midnight-light rounded px-1.5 py-0.5 font-medium">{primaryDef.term_raw}</code>
+                  {group.allDefs.length > 1 && <span className="text-xs text-gray-500 dark:text-cloud/40">({group.allDefs.length} versions)</span>}
+                </div>
               </td>
               <td className="py-4 px-3 text-sm text-gray-700 dark:text-cloud/80">
                 {isSplitView ? (
                   <div className="flex items-start gap-2">
-                    <p className={`flex-grow min-w-0 truncate`} title={primaryDef.def_text}>
+                    <p className={`flex-grow min-w-0`} title={primaryDef.def_text}>
                       {primaryDef.def_text}
                     </p>
                     <button
@@ -104,10 +105,11 @@ const DefinitionRow: React.FC<DefinitionRowProps> = ({ group, paragraphs, onSele
                     </button>
                   </div>
                 ) : (
-                  <span className="whitespace-normal break-words">{primaryDef.def_text}</span>
+                  <div className="whitespace-normal break-words leading-relaxed">{primaryDef.def_text}</div>
                 )}
               </td>
-              <td className="whitespace-nowrap py-4 px-3 text-sm text-gray-500 dark:text-cloud/60 font-mono">
+              <td className="whitespace-nowrap py-4 px-3 text-sm text-gray-500 dark:text-cloud/60">
+                <div className="flex flex-col gap-1 text-xs">
                   <button 
                     onClick={(e) => { 
                       console.log('🔥 DefinitionsTable: Primary link clicked!');
@@ -115,40 +117,36 @@ const DefinitionRow: React.FC<DefinitionRowProps> = ({ group, paragraphs, onSele
                       e.stopPropagation(); 
                       onViewParagraph(primaryDef.paragraphId, primaryDef.documentId); 
                     }} 
-                    className="hover:underline hover:text-teal dark:hover:text-lilac transition-colors" 
+                    className="hover:underline hover:text-teal dark:hover:text-lilac transition-colors font-mono text-left" 
                     title={`Go to Para ${primaryParaNum}`}
                   >
                       {`Para ${primaryParaNum}`}
                   </button>
-              </td>
-              <td className="whitespace-nowrap py-4 px-3 text-sm text-gray-700 dark:text-cloud/80 text-center">{group.allUsages.length}</td>
-              {showDocumentInfo && (
-                <td className="py-4 px-3 text-sm text-gray-700 dark:text-cloud/80">
-                  <div className="flex flex-wrap gap-1">
-                    {uniqueDocuments.map((docId, index) => (
-                      <span
-                        key={docId}
-                        className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${ 
-                          isMultiDocument
-                            ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300'
-                            : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
-                        }`}
-                        title={getDocumentName(docId)}
-                      >
-                        {getDocumentName(docId).length > 15 
-                          ? `${getDocumentName(docId).substring(0, 15)}...`
-                          : getDocumentName(docId)
-                        }
-                      </span>
-                    ))}
-                    {isMultiDocument && (
-                      <span className="text-xs text-blue-600 dark:text-blue-400 font-medium">
-                        Cross-doc
-                      </span>
-                    )}
+                  <div className="text-gray-400 dark:text-cloud/40">
+                    {group.allUsages.length} use{group.allUsages.length !== 1 ? 's' : ''}
                   </div>
-                </td>
-              )}
+                  {showDocumentInfo && uniqueDocuments.length > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      {uniqueDocuments.map((docId) => (
+                        <span
+                          key={docId}
+                          className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs ${ 
+                            isMultiDocument
+                              ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
+                              : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300'
+                          }`}
+                          title={getDocumentName(docId)}
+                        >
+                          {getDocumentName(docId).length > 10 
+                            ? `${getDocumentName(docId).substring(0, 10)}...`
+                            : getDocumentName(docId)
+                          }
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </td>
               <td className="py-4 pl-3 pr-4 text-sm text-gray-700 dark:text-cloud/80 sm:pr-6">
                 <div className="flex flex-wrap gap-1">
                   {group.issues.length > 0 ? group.issues.map(issue => <IssueBadge key={issue} issue={issue} />) : <span className="text-gray-400 dark:text-cloud/40">None</span>}
@@ -157,9 +155,16 @@ const DefinitionRow: React.FC<DefinitionRowProps> = ({ group, paragraphs, onSele
             </tr>
             {isExpanded && (
                 <tr className={isSelected ? 'bg-teal-50/50 dark:bg-lilac/10' : 'bg-gray-50 dark:bg-midnight/60'}>
-                    <td colSpan={isSplitView ? (showDocumentInfo ? 7 : 6) : (showDocumentInfo ? 8 : 7)} className="p-0">
+                    <td colSpan={isSplitView ? 5 : 6} className="p-0">
                         <div className="p-4 sm:p-6 bg-white/50 dark:bg-black/20">
-                            <h4 className="text-sm font-semibold text-gray-800 dark:text-cloud mb-3">{group.allDefs.length > 1 ? 'Found Definitions:' : 'Definition Context:'}</h4>
+                            <div className="flex items-center gap-2 mb-3">
+                                <span className="inline-flex items-center px-2 py-1 rounded-md text-sm font-medium bg-teal-100 text-teal-800 dark:bg-teal-900/30 dark:text-teal-300">
+                                    {group.canonical}
+                                </span>
+                                <span className="text-xs text-gray-500 dark:text-cloud/50">
+                                    {group.allDefs.length > 1 ? 'Found Definitions:' : 'Definition Context:'}
+                                </span>
+                            </div>
                             <ul className="space-y-4">
                                 {group.allDefs.map((def, idx) => {
                                     const paragraph = paragraphs.find(p => p.id === def.paragraphId);
@@ -205,23 +210,18 @@ export const DefinitionsTable: React.FC<DefinitionsTableProps> = ({ definitions,
   console.log('🔥 onViewParagraph function:', typeof onViewParagraph);
   
   return (
-      <table className="w-full divide-y divide-gray-200 dark:divide-midnight-lighter border-separate border-spacing-0 table-fixed">
+      <table className="w-full divide-y divide-gray-200 dark:divide-midnight-lighter border-separate border-spacing-0 table-auto sm:table-fixed">
         <thead className="bg-gray-50 dark:bg-midnight-light sticky top-0 z-10">
           <tr>
             {!isSplitView && (
-                <th scope="col" className="relative py-3.5 pl-4 pr-3 sm:pl-6">
+                <th scope="col" className="relative py-3.5 pl-4 pr-3 sm:pl-6 w-12">
                     <span className="sr-only">Expand</span>
                 </th>
             )}
-            <th scope="col" className={isSplitView ? "py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-800 dark:text-cloud sm:pl-6" : "py-3.5 px-3 text-left text-sm font-semibold text-gray-800 dark:text-cloud"}>Canonical Term</th>
-            <th scope="col" className="py-3.5 px-3 text-left text-sm font-semibold text-gray-800 dark:text-cloud">Primary Raw Term</th>
-            <th scope="col" className="py-3.5 px-3 text-left text-sm font-semibold text-gray-800 dark:text-cloud">Primary Definition</th>
-            <th scope="col" className="py-3.5 px-3 text-left text-sm font-semibold text-gray-800 dark:text-cloud">Locator</th>
-            <th scope="col" className="py-3.5 px-3 text-left text-sm font-semibold text-gray-800 dark:text-cloud">Uses</th>
-            {showDocumentInfo && (
-              <th scope="col" className="py-3.5 px-3 text-left text-sm font-semibold text-gray-800 dark:text-cloud">Documents</th>
-            )}
-            <th scope="col" className="py-3.5 pl-3 pr-4 text-left text-sm font-semibold text-gray-800 dark:text-cloud sm:pr-6">Issues</th>
+            <th scope="col" className={isSplitView ? "py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-800 dark:text-cloud sm:pl-6 w-24 sm:w-32" : "py-3.5 px-3 text-left text-sm font-semibold text-gray-800 dark:text-cloud w-24 sm:w-32"}>Term</th>
+            <th scope="col" className="py-3.5 px-3 text-left text-sm font-semibold text-gray-800 dark:text-cloud min-w-0">Definition</th>
+            <th scope="col" className="py-3.5 px-3 text-left text-sm font-semibold text-gray-800 dark:text-cloud w-20 sm:w-28">Details</th>
+            <th scope="col" className="py-3.5 pl-3 pr-4 text-left text-sm font-semibold text-gray-800 dark:text-cloud sm:pr-6 w-16 sm:w-20">Issues</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-200 dark:divide-midnight-light bg-white dark:bg-midnight">

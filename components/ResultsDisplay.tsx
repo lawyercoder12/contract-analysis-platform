@@ -309,14 +309,16 @@ export const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ results, fileNam
             </div>
             
             {showUsagePanel && (
-                <UsagePanel
-                    selectedTerm={selectedTerm}
-                    allUsages={results.usages}
-                    allDefinitions={results.definitions}
-                    paragraphs={results.paragraphs}
-                    onClose={() => setSelectedTerm(null)}
-                    onViewParagraph={handleViewParagraph}
-                />
+                <div className="lg:w-1/3 xl:w-2/5 flex-shrink-0 lg:sticky lg:top-[68px] lg:h-screen lg:max-h-[calc(100vh-100px)]">
+                    <UsagePanel
+                        selectedTerm={selectedTerm}
+                        allUsages={results.usages}
+                        allDefinitions={results.definitions}
+                        paragraphs={results.paragraphs}
+                        onClose={() => setSelectedTerm(null)}
+                        onViewParagraph={handleViewParagraph}
+                    />
+                </div>
             )}
         </div>
       </div>

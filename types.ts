@@ -20,6 +20,10 @@ export enum NumberingIssueType {
     Skipped = "skipped",
     Manual = "manual",
     Inconsistent = "inconsistent",
+    Duplicate = "duplicate",
+    OutOfOrder = "outoforder",
+    Hierarchy = "hierarchy",
+    Mixed = "mixed",
 }
 
 export enum Classification {
