@@ -296,22 +296,20 @@ export class ContractAnalyzer {
       throw new AnalysisError(`Backend parse failed: ${errorText}`);
     }
     const data = await response.json();
-    // The backend now returns { paragraphs, numberingDiscrepancies, maxLevel }
-    const numberingDiscrepancies: NumberingDiscrepancy[] = (data.numberingDiscrepancies || []).map((disc: any) => ({
-      type: disc.type as NumberingIssueType,
-      paragraphId: disc.paragraphId,
-      documentId: disc.documentId,
-      details: disc.details
-    }));
+    // Backend now only returns { paragraphs, maxLevel } - numbering detection moved to LLM
+    const rawParagraphs: Paragraph[] = data.paragraphs || [];
+    
+    // Use LLM to detect numbering discrepancies
+    const numberingDiscrepancies = await this.detectNumberingDiscrepanciesWithLLM(rawParagraphs);
     
     // Ensure all paragraphs have the correct documentId
-    const paragraphs: Paragraph[] = (data.paragraphs || []).map((para: any) => ({
+    const processedParagraphs: Paragraph[] = rawParagraphs.map((para: any) => ({
       ...para,
       documentId: documentId // Ensure consistent documentId
     }));
     
     return {
-      paragraphs,
+      paragraphs: processedParagraphs,
       numberingDiscrepancies,
       maxLevel: data.maxLevel || 0
     };
@@ -469,9 +467,11 @@ Instructions for Analysis:
 
    private async findImplicitDefinitions(chunk: { text: string }, knownTerms: string[]): Promise<RawSuggestion[]> {
     const systemMessage = `You are an expert legal tech AI specializing in contract analysis. Your task is to identify common, non-capitalized words or short phrases within a legal document that, based on their context, appear to be used with a specific, recurring, and critical meaning, suggesting they should have been formally defined. Your goal is to flag potential ambiguities that arise from these missing definitions.
+
 "paragraphId" MUST be the ID of the paragraph (e.g., "para-N") where the term was found.
 "sentence" MUST be the full sentence where the term appears.
 "reasoning" MUST be a concise explanation (1-2 sentences) of why this term's usage is specific and warrants a formal definition.
+"suggestedDefinition" MUST be a contextual definition for the term based on how it's used in this contract. This should be a clear, concise definition that captures the specific meaning intended in this contract context.
 
 Instructions:
 1.  **Candidate List:** Focus your analysis primarily on the following list of common legal/business terms: [agreement, affiliate, claim, confidential information, control, damages, deliverables, dispute, effective date, expenses, force majeure, indemnified parties, intellectual property, law, liability, losses, party/parties, person, products, purpose, representatives, services, taxes, term, territory, third party].
@@ -480,7 +480,13 @@ Instructions:
     *   **IGNORE** if the term is used in its common, everyday sense. Example: "This agreement represents the entire understanding." (Here, "agreement" is used generically).
     *   **IGNORE** if the term is part of a general list or a common legal phrase not specific to the contract's substance. Example: "...including but not limited to any claims, damages, or losses."
 3.  **CRITICAL RULE:** You will be provided a list of KNOWN_TERMS that are already formally defined. You **MUST NOT** suggest any term from this list. Double-check your suggestions against this list before finalizing the output.
-4.  **Output Format:** If no such terms are found, return an empty "suggestions" array. Your final response must be a JSON object structured as { "suggestions": [...] }.`;
+4.  **Suggested Definition Guidelines:** For each suggested term, provide a contextual definition that:
+    *   Captures the specific meaning as used in this contract
+    *   Is clear and concise (1-2 sentences maximum)
+    *   Reflects the contract's context and purpose
+    *   Uses standard legal definition format (e.g., "means" or "refers to")
+    *   Avoids circular references to the term itself
+5.  **Output Format:** If no such terms are found, return an empty "suggestions" array. Your final response must be a JSON object structured as { "suggestions": [...] }.`;
     
     const userMessage = `KNOWN_TERMS (already defined, do not report these): ["${knownTerms.join('", "')}"]\n\nCONTRACT_CHUNK:\n${chunk.text}`;
     const schema = {
@@ -495,8 +501,9 @@ Instructions:
                         paragraphId: { type: Type.STRING },
                         sentence: { type: Type.STRING },
                         reasoning: { type: Type.STRING },
+                        suggestedDefinition: { type: Type.STRING },
                     },
-                    required: ["term", "paragraphId", "sentence", "reasoning"]
+                    required: ["term", "paragraphId", "sentence", "reasoning", "suggestedDefinition"]
                 }
             }
         }
@@ -690,7 +697,7 @@ Instructions:
     
     // Filter out suggestions for terms that are already defined as a safety measure
     const allSuggestions = rawSuggestionsByChunk.flat()
-        .filter(s => !knownTermsLowercase.includes(s.term.toLowerCase()))
+        .filter(s => s.term && s.term.trim() && !knownTermsLowercase.includes(s.term.toLowerCase()))
         .map(rawSuggestion => ({ ...rawSuggestion, documentId }));
 
     let allUsages: Usage[] = rawUsagesByChunk.flat().map(rawUsage => ({
@@ -747,5 +754,145 @@ Instructions:
     });
 
     return { paragraphs, definitions: allDefinitions, usages: allUsages, suggestions: allSuggestions, crossReferences: allCrossReferences, numberingDiscrepancies, maxLevel, documentId };
+  }
+
+  private async detectNumberingDiscrepanciesWithLLM(paragraphs: Paragraph[]): Promise<NumberingDiscrepancy[]> {
+    // Prepare concise structured data for the LLM: paragraphId, numbering label, outline level, and whether any body text follows the label.
+    // Compute numeric left indents to derive visual hierarchy levels
+    const numericIndents = paragraphs.map(p => {
+      const val = parseFloat((p.indent?.left ?? '0').replace('rem',''));
+      return isNaN(val) ? 0 : val;
+    });
+    const uniqueIndents = Array.from(new Set(numericIndents)).sort((a,b) => a-b);
+    const indentLevelOf = (indent: number) => uniqueIndents.indexOf(indent);
+
+    const items = paragraphs
+      .filter(p => (p.numLabel && p.numLabel.trim() !== '') || p.level !== null)
+      .map(p => {
+        const indentVal = parseFloat((p.indent?.left ?? '0').replace('rem',''));
+        const indentLeftNum = isNaN(indentVal) ? 0 : indentVal;
+        return {
+          paragraphId: p.id,
+          documentId: p.documentId,
+          label: p.numLabel ?? '',
+          wordLevel: p.level ?? null,
+          indentLeftRem: indentLeftNum,
+          visualLevel: indentLevelOf(indentLeftNum),
+          hasText: p.text.trim().length > 0
+        };
+      });
+    
+    if (items.length === 0) {
+      return [];
+    }
+
+    // Build messages and schema for LLM call
+    const systemMessage = `You are an expert legal document reviewer focused on clause numbering.
+Your job is to analyse the provided structured data and spot numbering discrepancies such as:
+• skipped numbers
+• out-of-order numbers
+• duplicate numbers
+• inconsistent formats (mixing styles/punctuation)
+• manual (text) numbering that is not part of an automatic list
+• hierarchy problems (skipped levels / orphan items)
+Each object includes: paragraphId, label, wordLevel (Word listLevelNumber), indentLeftRem (numeric rem), visualLevel (derived from indentation), hasText.
+You MUST use the exact paragraphId string from the input. If you cannot determine a paragraphId, do **not** report that discrepancy.
+Respond ONLY with valid JSON that matches the given schema.`;
+
+    const userMessage = `NUMBERING_DATA:\n${JSON.stringify(items)}`;
+
+    const schema = {
+      type: Type.OBJECT,
+      properties: {
+        discrepancies: {
+          type: Type.ARRAY,
+          items: {
+            type: Type.OBJECT,
+            properties: {
+              type: { type: Type.STRING },
+              paragraphId: { type: Type.STRING },
+              documentId: { type: Type.STRING },
+              details: { type: Type.STRING }
+            },
+            required: ['type', 'paragraphId', 'documentId', 'details']
+          }
+        }
+      },
+      required: ['discrepancies']
+    };
+    /* const numberingData = numberedParagraphs.map(p => ({
+      id: p.id,
+      numLabel: p.numLabel,
+      level: p.level,
+      text: p.text.substring(0, 100) + (p.text.length > 100 ? '...' : '') // Truncate for context
+    }));
+
+    /* const prompt = `You are an expert at analyzing legal document numbering systems. Analyze the following numbered paragraphs and identify any numbering discrepancies.
+
+NUMBERED PARAGRAPHS:
+${JSON.stringify(numberingData, null, 2)}
+
+TYPES OF DISCREPANCIES TO DETECT:
+1. **skipped** - Missing numbers in sequence (e.g., 1, 2, 4 - missing 3)
+2. **outoforder** - Numbers not in ascending order (e.g., 1, 3, 2)
+3. **duplicate** - Same number used multiple times at same level
+4. **inconsistent** - Inconsistent formatting or numbering style
+5. **manual** - Text that appears numbered but lacks proper list formatting
+
+ANALYSIS RULES:
+- Focus on sequence within the same parent level (e.g., under "2": check 2.1, 2.2, 2.3...)
+- When returning from deeper levels to higher levels, that's normal (e.g., 2.4.a, 2.4.b, 2.5 is valid)
+- Only flag genuine issues, not normal hierarchical transitions
+- Consider the document structure and context
+
+Return your analysis as a JSON array of discrepancy objects with this exact format:
+[
+  {
+    "type": "skipped|outoforder|duplicate|inconsistent|manual",
+    "paragraphId": "para-XX",
+    "documentId": "doc-1", 
+    "details": "Clear description of the specific issue"
+  }
+]
+
+If no discrepancies are found, return an empty array: []`;
+    */
+
+    try {
+      const response = await this.callApi(systemMessage, userMessage, schema) as { discrepancies: NumberingDiscrepancy[] };
+      
+      // Handle and validate the JSON response returned by the model
+      if (response && Array.isArray(response.discrepancies)) {
+        // Filter out any malformed entries lacking a paragraphId
+        // Normalise keys that the LLM might return with slightly different names
+        const paraMap = new Map(paragraphs.map(p => [p.id, p]));
+
+        const normalised: NumberingDiscrepancy[] = response.discrepancies
+          .filter(d => !!d.paragraphId)
+          .map(raw => {
+            let typeTxt = (raw.type || (raw as any).issue || '').toString();
+            let detailsTxt = (raw.details ?? (raw as any).detail ?? (raw as any).message ?? (raw as any).reason ?? (raw as any).explanation ?? '').toString();
+            // If details missing but type contains a colon, split it.
+            if (!detailsTxt && typeTxt.includes(':')) {
+              const idx = typeTxt.indexOf(':');
+              detailsTxt = typeTxt.slice(idx + 1).trim();
+              typeTxt = typeTxt.slice(0, idx).trim();
+            }
+            return {
+              type: typeTxt as NumberingIssueType,
+              paragraphId: raw.paragraphId,
+              documentId: raw.documentId,
+              details: detailsTxt,
+            };
+          });
+
+        // Return as-is; rely on richer context given to the LLM
+        return normalised;
+      }
+      return [];
+    } catch (error) {
+      console.error('Error in LLM numbering detection:', error);
+      return []; // Return empty array on error rather than failing the whole analysis
+    }
   }
 }

@@ -90,6 +90,7 @@ export interface Suggestion {
     documentId: string;
     sentence: string;
     reasoning: string;
+    suggestedDefinition: string; // New field for contextual definitions
 }
 
 export interface CrossReference {
@@ -192,6 +193,7 @@ export interface RawSuggestion {
     paragraphId: string;
     sentence: string;
     reasoning: string;
+    suggestedDefinition: string; // New field for contextual definitions
 }
 
 export interface RawCrossReference {

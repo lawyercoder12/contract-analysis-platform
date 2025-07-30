@@ -14,7 +14,7 @@ export const SuggestionsTable: React.FC<SuggestionsTableProps> = ({ suggestions,
             <tr>
             <th scope="col" className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-800 dark:text-cloud sm:pl-6">Suggested Term</th>
             <th scope="col" className="py-3.5 px-3 text-left text-sm font-semibold text-gray-800 dark:text-cloud">AI Reasoning</th>
-            <th scope="col" className="py-3.5 px-3 text-left text-sm font-semibold text-gray-800 dark:text-cloud">Sample Usage</th>
+            <th scope="col" className="py-3.5 px-3 text-left text-sm font-semibold text-gray-800 dark:text-cloud">Suggested Usage</th>
             <th scope="col" className="py-3.5 px-3 text-left text-sm font-semibold text-gray-800 dark:text-cloud">Location</th>
             </tr>
         </thead>
@@ -28,13 +28,23 @@ export const SuggestionsTable: React.FC<SuggestionsTableProps> = ({ suggestions,
                 >
                     <td className="py-4 pl-4 pr-3 text-sm sm:pl-6">
                         <IssueBadge issue={IssueType.PotentialDefinitionNeeded} />
-                        <span className="ml-2 font-medium text-green-700 dark:text-green-300">{suggestion.term}</span>
+                        <span className="ml-2 font-medium text-green-700 dark:text-green-300">{suggestion.term || 'Unknown Term'}</span>
                     </td>
                     <td className="py-4 px-3 text-sm text-gray-700 dark:text-cloud/80 whitespace-normal">
                         <p>{suggestion.reasoning}</p>
                     </td>
                     <td className="py-4 px-3 text-sm text-gray-700 dark:text-cloud/80 whitespace-normal">
-                    <em>"{suggestion.sentence}"</em>
+                        <div className="space-y-2">
+                            <div className="text-sm text-gray-600 dark:text-cloud/70 italic">
+                                <em>"{suggestion.sentence}"</em>
+                            </div>
+                            <div className="text-sm font-medium text-blue-700 dark:text-blue-300">
+                                <strong>Suggested Definition:</strong>
+                            </div>
+                            <div className="text-sm text-gray-800 dark:text-cloud/90">
+                                {suggestion.suggestedDefinition || 'No definition suggested'}
+                            </div>
+                        </div>
                     </td>
                     <td className="whitespace-nowrap py-4 px-3 text-sm text-gray-500 dark:text-cloud/60 font-mono">
                         <button onClick={() => onViewParagraph(suggestion.paragraphId, suggestion.documentId)} className="hover:underline hover:text-teal dark:hover:text-lilac transition-colors" title={`Go to Para ${paraNum}`}>

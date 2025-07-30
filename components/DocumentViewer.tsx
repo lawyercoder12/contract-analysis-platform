@@ -34,9 +34,11 @@ const createTermMap = (definitions: Definition[], usages: Usage[], suggestions: 
 
     // Layer suggestions
     for (const s of suggestions) {
-        const key = s.term.toLowerCase();
-        if (!map.has(key)) {
-            map.set(key, { issues: new Set([IssueType.PotentialDefinitionNeeded]), type: 'suggestion' });
+        if (s.term && s.term.trim()) {
+            const key = s.term.toLowerCase();
+            if (!map.has(key)) {
+                map.set(key, { issues: new Set([IssueType.PotentialDefinitionNeeded]), type: 'suggestion' });
+            }
         }
     }
 
@@ -57,7 +59,7 @@ const HighlightedParagraph: React.FC<{ paragraph: Paragraph; definitions: Defini
         const terms = new Set<string>();
         definitions.filter(d => d.paragraphId === paragraph.id).forEach(d => terms.add(d.term_raw));
         usages.filter(u => u.paragraphId === paragraph.id).forEach(u => terms.add(u.token));
-        suggestions.filter(s => s.paragraphId === paragraph.id).forEach(s => terms.add(s.term));
+        suggestions.filter(s => s.paragraphId === paragraph.id && s.term && s.term.trim()).forEach(s => terms.add(s.term));
         crossReferences.filter(cr => cr.paragraphId === paragraph.id).forEach(cr => terms.add(cr.token));
         
         return Array.from(terms).sort((a, b) => b.length - a.length);
