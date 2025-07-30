@@ -89,33 +89,29 @@ string? GetNumberingLabelFromXml(Stream docxStream, int paraIndex)
 }
 
 // Helper method to detect numbering issues in list items
-void DetectListNumberingIssues(Aspose.Words.Lists.ListFormat listFormat, string numLabel, int? level, 
-    string paragraphId, Dictionary<string, Dictionary<string, int>> listTracking, 
+void DetectListNumberingIssues(Aspose.Words.Lists.ListFormat listFormat, string numLabel, int? level,
+    string paragraphId, Dictionary<string, int> listTracking, HashSet<string> seenLabels,
     List<object> numberingDiscrepancies, bool hasNumberingFields, string documentId)
 {
     if (!level.HasValue || listFormat?.List == null) return;
     var numId = listFormat.List.ListId.ToString();
-    var currentLevel = level.Value;
-    // Use the full numLabel (e.g., 2, 2.1, 2.2) as the key for tracking
     var labelKey = numLabel.Trim();
     if (string.IsNullOrWhiteSpace(labelKey)) return;
-    // Initialize tracking for this list if needed
-    if (!listTracking.ContainsKey(numId))
-    {
-        listTracking[numId] = new Dictionary<string, int>();
-    }
-    var labelTracking = listTracking[numId];
-    // Extract the last numeric part for sequence checking
+
+    // Track duplicates based on full label
+    var fullKey = $"{numId}:{labelKey}";
+    bool repeatedLabel = !seenLabels.Add(fullKey);
+
+    // Extract numeric value and parent label
     var parts = labelKey.Split('.');
     var lastPart = parts.LastOrDefault();
     if (int.TryParse(lastPart, out int currentNumber))
     {
-        // Build the parent label (e.g., for 2.2, parent is 2)
         string parentLabel = string.Join(".", parts.Take(parts.Length - 1));
-        // Only check for duplicates at the same full label
-        if (labelTracking.ContainsKey(labelKey))
+        var parentKey = $"{numId}:{parentLabel}";
+
+        if (listTracking.TryGetValue(parentKey, out int lastNumber))
         {
-            var lastNumber = labelTracking[labelKey];
             if (currentNumber == lastNumber)
             {
                 numberingDiscrepancies.Add(new {
@@ -131,7 +127,7 @@ void DetectListNumberingIssues(Aspose.Words.Lists.ListFormat listFormat, string 
                     type = "outoforder",
                     paragraphId = paragraphId,
                     documentId = documentId,
-                    details = $"Number sequence decreased from {lastNumber} to {currentNumber} at {labelKey}"
+                    details = $"Number sequence decreased from {lastNumber} to {currentNumber} under {parentLabel}"
                 });
             }
             else if (currentNumber > lastNumber + 1)
@@ -140,11 +136,22 @@ void DetectListNumberingIssues(Aspose.Words.Lists.ListFormat listFormat, string 
                     type = "skipped",
                     paragraphId = paragraphId,
                     documentId = documentId,
-                    details = $"Skipped number(s) between {lastNumber} and {currentNumber} at {labelKey}"
+                    details = $"Skipped number(s) between {lastNumber} and {currentNumber} under {parentLabel}"
                 });
             }
         }
-        labelTracking[labelKey] = currentNumber;
+
+        if (repeatedLabel && currentNumber != listTracking.GetValueOrDefault(parentKey, -1))
+        {
+            numberingDiscrepancies.Add(new {
+                type = "duplicate",
+                paragraphId = paragraphId,
+                documentId = documentId,
+                details = $"Duplicate number {labelKey}"
+            });
+        }
+
+        listTracking[parentKey] = currentNumber;
     }
     // Check for format inconsistencies by comparing with XML
     if (string.IsNullOrEmpty(numLabel) || numLabel == ".")
@@ -189,7 +196,8 @@ app.MapPost("/parse-docx", async (HttpRequest request) =>
         docxBytes.Position = 0;
         
         // Track numbering state for discrepancy detection
-        var listTracking = new Dictionary<string, Dictionary<string, int>>(); // numId -> labelKey -> lastNumber
+        var listTracking = new Dictionary<string, int>(); // key: "numId:parentLabel" -> last number
+        var seenLabels = new HashSet<string>();
         // Track the most recent number label at each level for misnumbered subclause detection
         var lastLabelAtLevel = new Dictionary<int, string>();
         var manualNumberingRegex = new Regex(@"^\s*[\(\[]?\d+[\)\.]|^\s*[\(\[]?[a-zA-Z][\)\.]|^\s*[\(\[]?[ivxlcdm]+[\)\.]|^\s*[\(\[]?[IVXLCDM]+[\)\.]|^\s*\u2022|^\s*\-|^\s*\*", RegexOptions.IgnoreCase);
@@ -253,7 +261,7 @@ app.MapPost("/parse-docx", async (HttpRequest request) =>
                 // Detect numbering discrepancies for list items
                 if (listFormat != null)
                 {
-                    DetectListNumberingIssues(listFormat, numLabel, level, paragraphId, listTracking, numberingDiscrepancies, hasNumberingFields, documentId);
+                    DetectListNumberingIssues(listFormat, numLabel, level, paragraphId, listTracking, seenLabels, numberingDiscrepancies, hasNumberingFields, documentId);
                 }
             }
             else
