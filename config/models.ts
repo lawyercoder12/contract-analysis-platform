@@ -43,5 +43,27 @@ export const MODELS_CONFIG: Provider[] = [
                 description: 'A smaller, faster, and more affordable model from OpenAI, suitable for various tasks.'
             }
         ]
+    },
+    {
+        id: 'llama',
+        name: 'Llama',
+        apiKeyName: 'Groq API Key',
+        Icon: ({ className }) => React.createElement('svg', {
+                xmlns: "http://www.w3.org/2000/svg",
+                viewBox: "0 0 24 24",
+                className: className,
+                fill: "currentColor"
+            },
+            React.createElement('path', {
+                d: "M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"
+            })
+        ),
+        models: [
+            {
+                id: 'llama-3.3-70b-versatile',
+                name: 'Llama 3.3 70B',
+                description: 'A powerful and versatile large language model, ideal for complex contract analysis tasks.'
+            }
+        ]
     }
 ];

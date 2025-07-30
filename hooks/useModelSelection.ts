@@ -29,7 +29,9 @@ export const useModelSelection = (): UseModelSelectionReturn => {
       // Try to get API key from environment variables first
       const envKey = storedProvider === 'openai' 
         ? import.meta.env.VITE_OPENAI_API_KEY 
-        : import.meta.env.VITE_GEMINI_API_KEY;
+        : storedProvider === 'gemini'
+        ? import.meta.env.VITE_GEMINI_API_KEY
+        : import.meta.env.VITE_GROQ_API_KEY;
       
       if (envKey) {
         setApiKey(envKey);
@@ -52,7 +54,9 @@ export const useModelSelection = (): UseModelSelectionReturn => {
     // Try to get API key from environment variables first
     const envKey = selectedProvider === 'openai' 
       ? import.meta.env.VITE_OPENAI_API_KEY 
-      : import.meta.env.VITE_GEMINI_API_KEY;
+      : selectedProvider === 'gemini'
+      ? import.meta.env.VITE_GEMINI_API_KEY
+      : import.meta.env.VITE_GROQ_API_KEY;
     
     if (envKey) {
       setApiKey(envKey);

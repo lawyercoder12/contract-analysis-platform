@@ -33,7 +33,7 @@ export enum Classification {
     Noise = "Noise",
 }
 
-export type ModelProviderId = 'gemini' | 'openai';
+export type ModelProviderId = 'gemini' | 'openai' | 'llama';
 
 export interface Model {
     id: string;

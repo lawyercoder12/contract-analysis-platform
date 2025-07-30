@@ -12,7 +12,12 @@
       "Bash(rm:*)",
       "Bash(npm run build:*)",
       "Bash(npm run lint)",
-      "Bash(npm run:*)"
+      "Bash(npm run:*)",
+      "Bash(dotnet build)",
+      "Bash(dotnet run:*)",
+      "Bash(pkill:*)",
+      "Bash(lsof:*)",
+      "Bash(curl:*)"
     ],
     "deny": []
   }

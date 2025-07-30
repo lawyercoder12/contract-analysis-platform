@@ -27,11 +27,112 @@ const API_CALL_BATCH_SIZE = 5;
 const PARAGRAPHS_PER_CHUNK = 10; // Balance context size and API call granularity
 const TWIPS_PER_REM = 12 * 20; // Default: 12pt font size * 20 twips/pt
 
+// Retry configuration for robust error handling
+const RETRY_CONFIG = {
+  MAX_RETRIES: 5,
+  INITIAL_DELAY: 1000, // 1 second
+  MAX_DELAY: 30000, // 30 seconds
+  BACKOFF_MULTIPLIER: 2,
+  JITTER_FACTOR: 0.1, // 10% jitter to prevent thundering herd
+} as const;
+
+// Error types that should trigger retries
+const RETRYABLE_ERRORS = [
+  'rate_limit_exceeded',
+  'quota_exceeded', 
+  'server_error',
+  'internal_server_error',
+  'service_unavailable',
+  'bad_gateway',
+  'gateway_timeout',
+  'timeout',
+  'network_error',
+  'connection_error'
+] as const;
+
 export class AnalysisError extends Error {
   constructor(message: string) {
     super(message);
     this.name = 'AnalysisError';
   }
+}
+
+// Retry utility functions
+function calculateDelay(attempt: number): number {
+  const delay = Math.min(
+    RETRY_CONFIG.INITIAL_DELAY * Math.pow(RETRY_CONFIG.BACKOFF_MULTIPLIER, attempt),
+    RETRY_CONFIG.MAX_DELAY
+  );
+  
+  // Add jitter to prevent thundering herd
+  const jitter = delay * RETRY_CONFIG.JITTER_FACTOR * (Math.random() - 0.5);
+  return Math.max(delay + jitter, 100); // Minimum 100ms delay
+}
+
+function isRetryableError(error: any): boolean {
+  if (!error) return false;
+  
+  const errorMessage = error.message || error.error?.message || '';
+  const errorType = error.error?.type || error.type || '';
+  const statusCode = error.status || error.statusCode;
+  
+  // Check for retryable HTTP status codes
+  if (statusCode >= 500 || statusCode === 429) return true;
+  
+  // Check for retryable error types
+  const lowerMessage = errorMessage.toLowerCase();
+  const lowerType = errorType.toLowerCase();
+  
+  return RETRYABLE_ERRORS.some(retryableError => 
+    lowerMessage.includes(retryableError) || lowerType.includes(retryableError)
+  );
+}
+
+async function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function withRetry<T>(
+  operation: () => Promise<T>,
+  context: string,
+  provider: ModelProviderId
+): Promise<T> {
+  let lastError: any;
+  
+  for (let attempt = 0; attempt <= RETRY_CONFIG.MAX_RETRIES; attempt++) {
+    try {
+      return await operation();
+    } catch (error) {
+      lastError = error;
+      
+      // Don't retry for non-retryable errors
+      if (!isRetryableError(error)) {
+        throw error;
+      }
+      
+      // Don't retry for authentication errors
+      if (error?.message?.includes('API key not valid') || 
+          error?.message?.includes('Incorrect API key') ||
+          error?.error?.message?.includes('API key not valid') ||
+          error?.error?.message?.includes('Incorrect API key')) {
+        throw error;
+      }
+      
+      // If this is the last attempt, throw the error
+      if (attempt === RETRY_CONFIG.MAX_RETRIES) {
+        console.error(`Failed after ${RETRY_CONFIG.MAX_RETRIES + 1} attempts for ${context}:`, error);
+        throw error;
+      }
+      
+      // Calculate delay and wait
+      const delay = calculateDelay(attempt);
+      console.warn(`Attempt ${attempt + 1} failed for ${context} (${provider}). Retrying in ${Math.round(delay)}ms...`, error?.message || error);
+      
+      await sleep(delay);
+    }
+  }
+  
+  throw lastError;
 }
 
 function formatApiError(errorBody: ApiErrorBody, context: string): string {
@@ -61,20 +162,20 @@ export async function validateApiKey(apiKey: string, provider: ModelProviderId, 
                 }
             });
 
-            if (response.text.trim() !== 'Working') {
+            if (response.text?.trim() !== 'Working') {
                  const prettyResponse = JSON.stringify(response, null, 2);
                  throw new Error(`API call succeeded, but the model returned an unexpected response. Expected "Working", but got:\n${prettyResponse}`);
             }
         } catch (e: unknown) {
-             if (e.message.includes('Failed to fetch')) {
+             if (e instanceof Error && e.message?.includes('Failed to fetch')) {
                  throw new AnalysisError('Network error. Check your internet connection and any browser extensions that might block requests (e.g., ad-blockers).');
              }
              // Attempt to parse the error for a more specific message
              try {
-                const errorJson = JSON.parse(e.message);
+                const errorJson = JSON.parse(e instanceof Error ? e.message : String(e));
                 throw new AnalysisError(formatApiError(errorJson, "API key validation"));
              } catch (parseError) {
-                throw new AnalysisError(e.message || "An unknown error occurred during API key validation.");
+                throw new AnalysisError(e instanceof Error ? e.message : String(e) || "An unknown error occurred during API key validation.");
              }
         }
     } else if (provider === 'openai') {
@@ -117,6 +218,35 @@ export async function validateApiKey(apiKey: string, provider: ModelProviderId, 
                 throw new AnalysisError(e.message || "An unknown error occurred during API key validation.");
              }
         }
+    } else if (provider === 'llama') {
+        await withRetry(async () => {
+            const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${apiKey}`
+                },
+                body: JSON.stringify({
+                    model: model,
+                    messages: [{ "role": "user", "content": "Just say the word Working" }],
+                    max_tokens: 5,
+                    temperature: 0,
+                })
+            });
+    
+            const data = await response.json();
+    
+            if (!response.ok) {
+                // The API returns a JSON error body, so we stringify it to pass to the handler.
+                throw new Error(JSON.stringify(data));
+            }
+    
+            const message = data.choices?.[0]?.message?.content?.trim();
+            if (message !== 'Working') {
+                 const prettyResponse = JSON.stringify(data, null, 2);
+                 throw new Error(`API call succeeded, but the model returned an unexpected response. Expected "Working", but got:\n${prettyResponse}`);
+            }
+        }, 'API key validation', provider);
     } else {
         throw new AnalysisError(`API Key validation for provider '${provider}' is not supported.`);
     }
@@ -142,59 +272,135 @@ export class ContractAnalyzer {
     }
   }
 
-  private async callApi(systemMessage: string, userMessage: string, responseSchema: ApiResponseSchema): Promise<ApiResponse> {
-    if (this.provider === 'gemini' && this.ai) {
-        const response = await this.ai.models.generateContent({
-            model: this.model,
-            contents: userMessage,
-            config: {
-                systemInstruction: systemMessage,
-                temperature: 0.1,
-                responseMimeType: "application/json",
-                responseSchema: responseSchema,
-            },
-        });
-        
-        // The response.text is already a stringified JSON due to responseMimeType
-        return JSON.parse(response.text);
-
-    } else if (this.provider === 'openai') {
-        const response = await fetch('https://api.openai.com/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${this.apiKey}`
-            },
-            body: JSON.stringify({
-                model: this.model,
-                messages: [
-                    { role: 'system', content: systemMessage },
-                    { role: 'user', content: userMessage }
-                ],
-                temperature: 0.1,
-                // Use JSON mode to ensure the output is a valid JSON object.
-                response_format: { type: 'json_object' } 
-            })
-        });
-
-        const data = await response.json();
-
-        if (!response.ok) {
-             throw new Error(JSON.stringify(data)); // Throw with body for the handler
-        }
-
-        const content = data.choices?.[0]?.message?.content;
-        if (!content) {
-            // Handle cases where the response might be empty or malformed
-            throw new Error('API returned an empty or malformed response content.');
-        }
-
-        // The content is a JSON string due to json_object mode, so parse it.
-        return JSON.parse(content);
-
+  private getSchemaForProvider(schema: any): ApiResponseSchema {
+    if (this.provider === 'gemini') {
+      return schema;
     } else {
-        throw new Error(`Unsupported provider or AI client not initialized: ${this.provider}`);
+      // Convert Google GenAI Type enum to plain JSON schema for OpenAI/Llama
+      const convertType = (type: any): string => {
+        if (type === Type.OBJECT || type === "OBJECT") return "object";
+        if (type === Type.ARRAY || type === "ARRAY") return "array";
+        if (type === Type.STRING || type === "STRING") return "string";
+        if (type === Type.BOOLEAN || type === "BOOLEAN") return "boolean";
+        return "string"; // fallback
+      };
+
+      const convertSchema = (schema: any): any => {
+        if (typeof schema === 'object' && schema !== null) {
+          const converted: any = {};
+          for (const [key, value] of Object.entries(schema)) {
+            if (key === 'type' && typeof value === 'object') {
+              converted[key] = convertType(value);
+            } else if (key === 'properties' || key === 'items') {
+              converted[key] = convertSchema(value);
+            } else if (key === 'enum' || key === 'required') {
+              converted[key] = value;
+            } else if (typeof value === 'object') {
+              converted[key] = convertSchema(value);
+            } else {
+              converted[key] = value;
+            }
+          }
+          return converted;
+        }
+        return schema;
+      };
+
+      return convertSchema(schema);
     }
+  }
+
+  private async callApi(systemMessage: string, userMessage: string, responseSchema: ApiResponseSchema): Promise<ApiResponse> {
+    const convertedSchema = this.getSchemaForProvider(responseSchema);
+    
+    return withRetry(async () => {
+      if (this.provider === 'gemini' && this.ai) {
+          const response = await this.ai.models.generateContent({
+              model: this.model,
+              contents: userMessage,
+              config: {
+                  systemInstruction: systemMessage,
+                  temperature: 0.1,
+                  responseMimeType: "application/json",
+                  responseSchema: convertedSchema,
+              },
+          });
+          
+          // The response.text is already a stringified JSON due to responseMimeType
+          return JSON.parse(response.text);
+
+      } else if (this.provider === 'openai') {
+          const response = await fetch('https://api.openai.com/v1/chat/completions', {
+              method: 'POST',
+              headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${this.apiKey}`
+              },
+              body: JSON.stringify({
+                  model: this.model,
+                  messages: [
+                      { role: 'system', content: systemMessage },
+                      { role: 'user', content: userMessage }
+                  ],
+                  temperature: 0.1,
+                  // Use JSON mode to ensure the output is a valid JSON object.
+                  response_format: { type: 'json_object' } 
+              })
+          });
+
+          const data = await response.json();
+
+          if (!response.ok) {
+               throw new Error(JSON.stringify(data)); // Throw with body for the handler
+          }
+
+          const content = data.choices?.[0]?.message?.content;
+          if (!content) {
+              // Handle cases where the response might be empty or malformed
+              throw new Error('API returned an empty or malformed response content.');
+          }
+
+          // The content is a JSON string due to json_object mode, so parse it.
+          return JSON.parse(content);
+
+      } else if (this.provider === 'llama') {
+          const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+              method: 'POST',
+              headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${this.apiKey}`
+              },
+              body: JSON.stringify({
+                  model: this.model,
+                  messages: [
+                      { role: 'system', content: systemMessage },
+                      { role: 'user', content: userMessage }
+                  ],
+                  temperature: 0.1,
+                  // Use JSON mode to ensure the output is a valid JSON object.
+                  response_format: { type: 'json_object' } 
+              })
+          });
+
+          const data = await response.json();
+
+          if (!response.ok) {
+               throw new Error(JSON.stringify(data)); // Throw with body for the handler
+          }
+
+          const content = data.choices?.[0]?.message?.content;
+          if (!content) {
+              // Handle cases where the response might be empty or malformed
+              throw new Error('API returned an empty or malformed response content.');
+          }
+
+          // The content is a JSON string due to json_object mode, so parse it.
+          return JSON.parse(content);
+
+      } else {
+          throw new Error(`Unsupported provider or AI client not initialized: ${this.provider}`);
+      }
+    }, 'API call', this.provider);
   }
 
   private handleApiError(e: unknown, context: string): never {
@@ -757,6 +963,8 @@ Instructions:
   }
 
   private async detectNumberingDiscrepanciesWithLLM(paragraphs: Paragraph[]): Promise<NumberingDiscrepancy[]> {
+    console.log('Starting numbering discrepancy detection with LLM...');
+    console.log(`Input paragraphs: ${paragraphs.length} total`);
     // Prepare concise structured data for the LLM: paragraphId, numbering label, outline level, and whether any body text follows the label.
     // Compute numeric left indents to derive visual hierarchy levels
     const numericIndents = paragraphs.map(p => {
@@ -783,23 +991,30 @@ Instructions:
       });
     
     if (items.length === 0) {
+      console.log('No numbered paragraphs found, returning empty array');
       return [];
     }
+    
+    console.log(`Found ${items.length} numbered paragraphs to analyze`);
+          console.log('Sample items:', items.slice(0, 3));
+      console.log('All items for debugging:', JSON.stringify(items, null, 2));
 
     // Build messages and schema for LLM call
     const systemMessage = `You are an expert legal document reviewer focused on clause numbering.
 Your job is to analyse the provided structured data and spot numbering discrepancies such as:
-• skipped numbers
-• out-of-order numbers
-• duplicate numbers
+• skipped numbers (e.g., 1.1, 1.3 with no 1.2)
+• out-of-order numbers (e.g., 1.1, 1.3, 1.2)
+• duplicate numbers (same number used twice)
 • inconsistent formats (mixing styles/punctuation)
 • manual (text) numbering that is not part of an automatic list
 • hierarchy problems (skipped levels / orphan items)
+
+CRITICAL: You MUST detect gaps in numbering sequences. If you see 1.1 followed by 1.3, that's a skipped number.
 Each object includes: paragraphId, label, wordLevel (Word listLevelNumber), indentLeftRem (numeric rem), visualLevel (derived from indentation), hasText.
 You MUST use the exact paragraphId string from the input. If you cannot determine a paragraphId, do **not** report that discrepancy.
 Respond ONLY with valid JSON that matches the given schema.`;
 
-    const userMessage = `NUMBERING_DATA:\n${JSON.stringify(items)}`;
+    const userMessage = `NUMBERING_DATA:\n${JSON.stringify(items, null, 2)}`;
 
     const schema = {
       type: Type.OBJECT,
@@ -858,40 +1073,66 @@ Return your analysis as a JSON array of discrepancy objects with this exact form
 If no discrepancies are found, return an empty array: []`;
     */
 
-    try {
+        try {
+      console.log('Calling LLM API for numbering analysis...');
       const response = await this.callApi(systemMessage, userMessage, schema) as { discrepancies: NumberingDiscrepancy[] };
+      console.log('LLM response received:', JSON.stringify(response, null, 2));
       
       // Handle and validate the JSON response returned by the model
       if (response && Array.isArray(response.discrepancies)) {
+        console.log(`Raw discrepancies from LLM: ${response.discrepancies.length}`);
+        console.log('Sample raw discrepancy:', response.discrepancies[0]);
+        
         // Filter out any malformed entries lacking a paragraphId
         // Normalise keys that the LLM might return with slightly different names
         const paraMap = new Map(paragraphs.map(p => [p.id, p]));
-
+        
         const normalised: NumberingDiscrepancy[] = response.discrepancies
-          .filter(d => !!d.paragraphId)
+          .filter(d => {
+            const hasId = !!d.paragraphId;
+            if (!hasId) {
+              console.warn('Filtering out discrepancy without paragraphId:', d);
+            }
+            return hasId;
+          })
           .map(raw => {
+            console.log('Processing raw discrepancy:', raw);
             let typeTxt = (raw.type || (raw as any).issue || '').toString();
             let detailsTxt = (raw.details ?? (raw as any).detail ?? (raw as any).message ?? (raw as any).reason ?? (raw as any).explanation ?? '').toString();
+            console.log(`Extracted type: "${typeTxt}", details: "${detailsTxt}"`);
+            
             // If details missing but type contains a colon, split it.
             if (!detailsTxt && typeTxt.includes(':')) {
               const idx = typeTxt.indexOf(':');
               detailsTxt = typeTxt.slice(idx + 1).trim();
               typeTxt = typeTxt.slice(0, idx).trim();
+              console.log(`Split combined string - new type: "${typeTxt}", details: "${detailsTxt}"`);
             }
-            return {
+            
+            const result = {
               type: typeTxt as NumberingIssueType,
               paragraphId: raw.paragraphId,
               documentId: raw.documentId,
               details: detailsTxt,
             };
+            console.log('Normalized discrepancy:', result);
+            return result;
           });
 
+        console.log(`Final normalized discrepancies: ${normalised.length}`);
+        console.log('Sample normalized discrepancy:', normalised[0]);
+        
         // Return as-is; rely on richer context given to the LLM
         return normalised;
       }
+      console.log('No valid response or discrepancies array from LLM');
       return [];
     } catch (error) {
       console.error('Error in LLM numbering detection:', error);
+      console.error('Error details:', {
+        message: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined
+      });
       return []; // Return empty array on error rather than failing the whole analysis
     }
   }
