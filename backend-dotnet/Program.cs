@@ -193,6 +193,8 @@ app.MapPost("/parse-docx", async (HttpRequest request) =>
         // Track the most recent number label at each level for misnumbered subclause detection
         var lastLabelAtLevel = new Dictionary<int, string>();
         var manualNumberingRegex = new Regex(@"^\s*[\(\[]?\d+[\)\.]|^\s*[\(\[]?[a-zA-Z][\)\.]|^\s*[\(\[]?[ivxlcdm]+[\)\.]|^\s*[\(\[]?[IVXLCDM]+[\)\.]|^\s*\u2022|^\s*\-|^\s*\*", RegexOptions.IgnoreCase);
+
+        int previousLevel = -1;
         
         // Extract paragraphs, numbering, indentation
         foreach (Aspose.Words.Paragraph para in doc.GetChildNodes(Aspose.Words.NodeType.Paragraph, true))
@@ -219,6 +221,16 @@ app.MapPost("/parse-docx", async (HttpRequest request) =>
                     numLabel = GetNumberingLabelFromXml(docxBytes, paraId - 1) ?? "";
                 }
                 level = listFormat?.ListLevelNumber;
+
+                int currentLevel = level ?? -1;
+                if (currentLevel < previousLevel)
+                {
+                    var keysToRemove = lastLabelAtLevel.Keys.Where(k => k > currentLevel).ToList();
+                    foreach (var key in keysToRemove)
+                    {
+                        lastLabelAtLevel.Remove(key);
+                    }
+                }
                 if (level.HasValue && level.Value > maxLevel)
                 {
                     maxLevel = level.Value;
@@ -258,6 +270,16 @@ app.MapPost("/parse-docx", async (HttpRequest request) =>
             }
             else
             {
+                int currentLevel = -1;
+                if (currentLevel < previousLevel)
+                {
+                    var keysToRemove = lastLabelAtLevel.Keys.Where(k => k > currentLevel).ToList();
+                    foreach (var key in keysToRemove)
+                    {
+                        lastLabelAtLevel.Remove(key);
+                    }
+                }
+
                 // Check for manual numbering (text looks numbered but not a list item)
                 if (!string.IsNullOrWhiteSpace(text) && manualNumberingRegex.IsMatch(text))
                 {
@@ -294,6 +316,8 @@ app.MapPost("/parse-docx", async (HttpRequest request) =>
                 documentId = documentId,
                 indent = indent
             });
+
+            previousLevel = level ?? -1;
             paraId++;
         }
         return Results.Ok(new { paragraphs, numberingDiscrepancies, maxLevel });
