@@ -200,6 +200,8 @@ app.MapPost("/parse-docx", async (HttpRequest request) =>
         var seenLabels = new HashSet<string>();
         // Track the most recent number label at each level for misnumbered subclause detection
         var lastLabelAtLevel = new Dictionary<int, string>();
+        // Track the most recent number at each level for sequence checking
+        var lastNumberAtLevel = new Dictionary<int, int>();
         var manualNumberingRegex = new Regex(@"^\s*[\(\[]?\d+[\)\.]|^\s*[\(\[]?[a-zA-Z][\)\.]|^\s*[\(\[]?[ivxlcdm]+[\)\.]|^\s*[\(\[]?[IVXLCDM]+[\)\.]|^\s*\u2022|^\s*\-|^\s*\*", RegexOptions.IgnoreCase);
         
         // Extract paragraphs, numbering, indentation
@@ -235,13 +237,10 @@ app.MapPost("/parse-docx", async (HttpRequest request) =>
                 if (level.HasValue && level.Value > 0)
                 {
                     var parentLevel = level.Value - 1;
-                    if (lastLabelAtLevel.ContainsKey(parentLevel))
+                    var expectedParentLabel = string.Join(".", numLabel.Split('.').Take(level.Value));
+                    if (lastLabelAtLevel.TryGetValue(parentLevel, out var parentLabel))
                     {
-                        var parentLabel = lastLabelAtLevel[parentLevel];
-                        // Remove trailing dot for comparison
-                        var parentLabelClean = parentLabel.TrimEnd('.');
-                        var numLabelClean = numLabel.TrimEnd('.');
-                        if (!numLabelClean.StartsWith(parentLabelClean + "."))
+                        if (!numLabel.StartsWith(parentLabel + "."))
                         {
                             numberingDiscrepancies.Add(new {
                                 type = "misnumbered_subclause",
@@ -251,11 +250,46 @@ app.MapPost("/parse-docx", async (HttpRequest request) =>
                             });
                         }
                     }
+                    // If no parent at this level, do not flag an error
                 }
                 // Update lastLabelAtLevel for this level
                 if (level.HasValue)
                 {
-                    lastLabelAtLevel[level.Value] = numLabel;
+                    // --- PATCH: Robust parent label sequence checking ---
+                    int currLevel = level.Value;
+                    var parts = numLabel.Split('.');
+                    if (parts.Length > 0 && int.TryParse(parts.Last(), out int currNum))
+                    {
+                        // Check for skipped/out-of-order numbers at this level
+                        if (lastNumberAtLevel.ContainsKey(currLevel))
+                        {
+                            int lastNum = lastNumberAtLevel[currLevel];
+                            if (currNum < lastNum)
+                            {
+                                numberingDiscrepancies.Add(new {
+                                    type = "outoforder",
+                                    paragraphId = paragraphId,
+                                    documentId = documentId,
+                                    details = $"Number sequence decreased from {lastNum} to {currNum} at level {currLevel} ({numLabel})"
+                                });
+                            }
+                            else if (currNum > lastNum + 1)
+                            {
+                                numberingDiscrepancies.Add(new {
+                                    type = "skipped",
+                                    paragraphId = paragraphId,
+                                    documentId = documentId,
+                                    details = $"Skipped number(s) between {lastNum} and {currNum} at level {currLevel} ({numLabel})"
+                                });
+                            }
+                        }
+                        lastNumberAtLevel[currLevel] = currNum;
+                        // Remove all parent labels for levels >= current level
+                        var labelKeysToRemove = lastLabelAtLevel.Keys.Where(lvl => lvl >= currLevel).ToList();
+                        foreach (var k in labelKeysToRemove) lastLabelAtLevel.Remove(k);
+                    }
+                    // --- PATCH: Update lastLabelAtLevel for misnumbered subclause logic ---
+                    lastLabelAtLevel[currLevel] = numLabel;
                 }
                 
                 // Detect numbering discrepancies for list items

@@ -1,20 +1,20 @@
 {
   "format": 1,
   "restore": {
-    "C:\\Users\\ashish.james\\Downloads\\v0.11 name-updated\\backend-dotnet\\backend-dotnet.csproj": {}
+    "/Users/ashishjames/contract-analysis-platform/backend-dotnet/backend-dotnet.csproj": {}
   },
   "projects": {
-    "C:\\Users\\ashish.james\\Downloads\\v0.11 name-updated\\backend-dotnet\\backend-dotnet.csproj": {
+    "/Users/ashishjames/contract-analysis-platform/backend-dotnet/backend-dotnet.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Users\\ashish.james\\Downloads\\v0.11 name-updated\\backend-dotnet\\backend-dotnet.csproj",
+        "projectUniqueName": "/Users/ashishjames/contract-analysis-platform/backend-dotnet/backend-dotnet.csproj",
         "projectName": "backend-dotnet",
-        "projectPath": "C:\\Users\\ashish.james\\Downloads\\v0.11 name-updated\\backend-dotnet\\backend-dotnet.csproj",
-        "packagesPath": "C:\\Users\\ashish.james\\.nuget\\packages\\",
-        "outputPath": "C:\\Users\\ashish.james\\Downloads\\v0.11 name-updated\\backend-dotnet\\obj\\",
+        "projectPath": "/Users/ashishjames/contract-analysis-platform/backend-dotnet/backend-dotnet.csproj",
+        "packagesPath": "/Users/ashishjames/.nuget/packages/",
+        "outputPath": "/Users/ashishjames/contract-analysis-platform/backend-dotnet/obj/",
         "projectStyle": "PackageReference",
         "configFilePaths": [
-          "C:\\Users\\ashish.james\\AppData\\Roaming\\NuGet\\NuGet.Config"
+          "/Users/ashishjames/.nuget/NuGet/NuGet.Config"
         ],
         "originalTargetFrameworks": [
           "net8.0"
@@ -75,7 +75,7 @@
               "privateAssets": "all"
             }
           },
-          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\8.0.412/PortableRuntimeIdentifierGraph.json"
+          "runtimeIdentifierGraphPath": "/usr/local/share/dotnet/sdk/8.0.412/PortableRuntimeIdentifierGraph.json"
         }
       }
     }

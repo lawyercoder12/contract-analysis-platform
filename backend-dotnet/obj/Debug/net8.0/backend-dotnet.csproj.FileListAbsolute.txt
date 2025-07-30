@@ -1,41 +1,82 @@
-C:\Users\ashish.james\Downloads\v0.11 name-updated\backend-dotnet\obj\Debug\net8.0\backend-dotnet.csproj.AssemblyReference.cache
-C:\Users\ashish.james\Downloads\v0.11 name-updated\backend-dotnet\obj\Debug\net8.0\backend-dotnet.GeneratedMSBuildEditorConfig.editorconfig
-C:\Users\ashish.james\Downloads\v0.11 name-updated\backend-dotnet\obj\Debug\net8.0\backend-dotnet.AssemblyInfoInputs.cache
-C:\Users\ashish.james\Downloads\v0.11 name-updated\backend-dotnet\obj\Debug\net8.0\backend-dotnet.AssemblyInfo.cs
-C:\Users\ashish.james\Downloads\v0.11 name-updated\backend-dotnet\obj\Debug\net8.0\backend-dotnet.csproj.CoreCompileInputs.cache
-C:\Users\ashish.james\Downloads\v0.11 name-updated\backend-dotnet\obj\Debug\net8.0\backend-dotnet.MvcApplicationPartsAssemblyInfo.cs
-C:\Users\ashish.james\Downloads\v0.11 name-updated\backend-dotnet\obj\Debug\net8.0\backend-dotnet.MvcApplicationPartsAssemblyInfo.cache
-C:\Users\ashish.james\Downloads\v0.11 name-updated\backend-dotnet\obj\Debug\net8.0\backend-dotnet.sourcelink.json
-C:\Users\ashish.james\Downloads\v0.11 name-updated\backend-dotnet\bin\Debug\net8.0\appsettings.Development.json
-C:\Users\ashish.james\Downloads\v0.11 name-updated\backend-dotnet\bin\Debug\net8.0\appsettings.json
-C:\Users\ashish.james\Downloads\v0.11 name-updated\backend-dotnet\bin\Debug\net8.0\backend-dotnet.exe
-C:\Users\ashish.james\Downloads\v0.11 name-updated\backend-dotnet\bin\Debug\net8.0\backend-dotnet.deps.json
-C:\Users\ashish.james\Downloads\v0.11 name-updated\backend-dotnet\bin\Debug\net8.0\backend-dotnet.runtimeconfig.json
-C:\Users\ashish.james\Downloads\v0.11 name-updated\backend-dotnet\bin\Debug\net8.0\backend-dotnet.dll
-C:\Users\ashish.james\Downloads\v0.11 name-updated\backend-dotnet\bin\Debug\net8.0\backend-dotnet.pdb
-C:\Users\ashish.james\Downloads\v0.11 name-updated\backend-dotnet\bin\Debug\net8.0\Aspose.Words.dll
-C:\Users\ashish.james\Downloads\v0.11 name-updated\backend-dotnet\bin\Debug\net8.0\Microsoft.AspNetCore.OpenApi.dll
-C:\Users\ashish.james\Downloads\v0.11 name-updated\backend-dotnet\bin\Debug\net8.0\Microsoft.OpenApi.dll
-C:\Users\ashish.james\Downloads\v0.11 name-updated\backend-dotnet\bin\Debug\net8.0\SkiaSharp.dll
-C:\Users\ashish.james\Downloads\v0.11 name-updated\backend-dotnet\bin\Debug\net8.0\Swashbuckle.AspNetCore.Swagger.dll
-C:\Users\ashish.james\Downloads\v0.11 name-updated\backend-dotnet\bin\Debug\net8.0\Swashbuckle.AspNetCore.SwaggerGen.dll
-C:\Users\ashish.james\Downloads\v0.11 name-updated\backend-dotnet\bin\Debug\net8.0\Swashbuckle.AspNetCore.SwaggerUI.dll
-C:\Users\ashish.james\Downloads\v0.11 name-updated\backend-dotnet\bin\Debug\net8.0\runtimes\osx\native\libSkiaSharp.dylib
-C:\Users\ashish.james\Downloads\v0.11 name-updated\backend-dotnet\bin\Debug\net8.0\runtimes\win-arm64\native\libSkiaSharp.dll
-C:\Users\ashish.james\Downloads\v0.11 name-updated\backend-dotnet\bin\Debug\net8.0\runtimes\win-x64\native\libSkiaSharp.dll
-C:\Users\ashish.james\Downloads\v0.11 name-updated\backend-dotnet\bin\Debug\net8.0\runtimes\win-x86\native\libSkiaSharp.dll
-C:\Users\ashish.james\Downloads\v0.11 name-updated\backend-dotnet\obj\Debug\net8.0\staticwebassets.build.json
-C:\Users\ashish.james\Downloads\v0.11 name-updated\backend-dotnet\obj\Debug\net8.0\staticwebassets.development.json
-C:\Users\ashish.james\Downloads\v0.11 name-updated\backend-dotnet\obj\Debug\net8.0\staticwebassets\msbuild.backend-dotnet.Microsoft.AspNetCore.StaticWebAssets.props
-C:\Users\ashish.james\Downloads\v0.11 name-updated\backend-dotnet\obj\Debug\net8.0\staticwebassets\msbuild.build.backend-dotnet.props
-C:\Users\ashish.james\Downloads\v0.11 name-updated\backend-dotnet\obj\Debug\net8.0\staticwebassets\msbuild.buildMultiTargeting.backend-dotnet.props
-C:\Users\ashish.james\Downloads\v0.11 name-updated\backend-dotnet\obj\Debug\net8.0\staticwebassets\msbuild.buildTransitive.backend-dotnet.props
-C:\Users\ashish.james\Downloads\v0.11 name-updated\backend-dotnet\obj\Debug\net8.0\staticwebassets.pack.json
-C:\Users\ashish.james\Downloads\v0.11 name-updated\backend-dotnet\obj\Debug\net8.0\scopedcss\bundle\backend-dotnet.styles.css
-C:\Users\ashish.james\Downloads\v0.11 name-updated\backend-dotnet\obj\Debug\net8.0\backend-.B2C7BE29.Up2Date
-C:\Users\ashish.james\Downloads\v0.11 name-updated\backend-dotnet\obj\Debug\net8.0\backend-dotnet.dll
-C:\Users\ashish.james\Downloads\v0.11 name-updated\backend-dotnet\obj\Debug\net8.0\refint\backend-dotnet.dll
-C:\Users\ashish.james\Downloads\v0.11 name-updated\backend-dotnet\obj\Debug\net8.0\backend-dotnet.pdb
-C:\Users\ashish.james\Downloads\v0.11 name-updated\backend-dotnet\obj\Debug\net8.0\backend-dotnet.genruntimeconfig.cache
-C:\Users\ashish.james\Downloads\v0.11 name-updated\backend-dotnet\obj\Debug\net8.0\ref\backend-dotnet.dll
-C:\Users\ashish.james\Downloads\v0.11 name-updated\backend-dotnet\bin\Debug\net8.0\Aspose.Words.Pdf2Word.dll
+C:/Users/ashish.james/Downloads/v0.11 name-updated/backend-dotnet/obj/Debug/net8.0/backend-dotnet.csproj.AssemblyReference.cache
+C:/Users/ashish.james/Downloads/v0.11 name-updated/backend-dotnet/obj/Debug/net8.0/backend-dotnet.GeneratedMSBuildEditorConfig.editorconfig
+C:/Users/ashish.james/Downloads/v0.11 name-updated/backend-dotnet/obj/Debug/net8.0/backend-dotnet.AssemblyInfoInputs.cache
+C:/Users/ashish.james/Downloads/v0.11 name-updated/backend-dotnet/obj/Debug/net8.0/backend-dotnet.AssemblyInfo.cs
+C:/Users/ashish.james/Downloads/v0.11 name-updated/backend-dotnet/obj/Debug/net8.0/backend-dotnet.csproj.CoreCompileInputs.cache
+C:/Users/ashish.james/Downloads/v0.11 name-updated/backend-dotnet/obj/Debug/net8.0/backend-dotnet.MvcApplicationPartsAssemblyInfo.cs
+C:/Users/ashish.james/Downloads/v0.11 name-updated/backend-dotnet/obj/Debug/net8.0/backend-dotnet.MvcApplicationPartsAssemblyInfo.cache
+C:/Users/ashish.james/Downloads/v0.11 name-updated/backend-dotnet/obj/Debug/net8.0/backend-dotnet.sourcelink.json
+C:/Users/ashish.james/Downloads/v0.11 name-updated/backend-dotnet/bin/Debug/net8.0/appsettings.Development.json
+C:/Users/ashish.james/Downloads/v0.11 name-updated/backend-dotnet/bin/Debug/net8.0/appsettings.json
+C:/Users/ashish.james/Downloads/v0.11 name-updated/backend-dotnet/bin/Debug/net8.0/backend-dotnet.exe
+C:/Users/ashish.james/Downloads/v0.11 name-updated/backend-dotnet/bin/Debug/net8.0/backend-dotnet.deps.json
+C:/Users/ashish.james/Downloads/v0.11 name-updated/backend-dotnet/bin/Debug/net8.0/backend-dotnet.runtimeconfig.json
+C:/Users/ashish.james/Downloads/v0.11 name-updated/backend-dotnet/bin/Debug/net8.0/backend-dotnet.dll
+C:/Users/ashish.james/Downloads/v0.11 name-updated/backend-dotnet/bin/Debug/net8.0/backend-dotnet.pdb
+C:/Users/ashish.james/Downloads/v0.11 name-updated/backend-dotnet/bin/Debug/net8.0/Aspose.Words.dll
+C:/Users/ashish.james/Downloads/v0.11 name-updated/backend-dotnet/bin/Debug/net8.0/Microsoft.AspNetCore.OpenApi.dll
+C:/Users/ashish.james/Downloads/v0.11 name-updated/backend-dotnet/bin/Debug/net8.0/Microsoft.OpenApi.dll
+C:/Users/ashish.james/Downloads/v0.11 name-updated/backend-dotnet/bin/Debug/net8.0/SkiaSharp.dll
+C:/Users/ashish.james/Downloads/v0.11 name-updated/backend-dotnet/bin/Debug/net8.0/Swashbuckle.AspNetCore.Swagger.dll
+C:/Users/ashish.james/Downloads/v0.11 name-updated/backend-dotnet/bin/Debug/net8.0/Swashbuckle.AspNetCore.SwaggerGen.dll
+C:/Users/ashish.james/Downloads/v0.11 name-updated/backend-dotnet/bin/Debug/net8.0/Swashbuckle.AspNetCore.SwaggerUI.dll
+C:/Users/ashish.james/Downloads/v0.11 name-updated/backend-dotnet/bin/Debug/net8.0/runtimes/osx/native/libSkiaSharp.dylib
+C:/Users/ashish.james/Downloads/v0.11 name-updated/backend-dotnet/bin/Debug/net8.0/runtimes/win-arm64/native/libSkiaSharp.dll
+C:/Users/ashish.james/Downloads/v0.11 name-updated/backend-dotnet/bin/Debug/net8.0/runtimes/win-x64/native/libSkiaSharp.dll
+C:/Users/ashish.james/Downloads/v0.11 name-updated/backend-dotnet/bin/Debug/net8.0/runtimes/win-x86/native/libSkiaSharp.dll
+C:/Users/ashish.james/Downloads/v0.11 name-updated/backend-dotnet/obj/Debug/net8.0/staticwebassets.build.json
+C:/Users/ashish.james/Downloads/v0.11 name-updated/backend-dotnet/obj/Debug/net8.0/staticwebassets.development.json
+C:/Users/ashish.james/Downloads/v0.11 name-updated/backend-dotnet/obj/Debug/net8.0/staticwebassets/msbuild.backend-dotnet.Microsoft.AspNetCore.StaticWebAssets.props
+C:/Users/ashish.james/Downloads/v0.11 name-updated/backend-dotnet/obj/Debug/net8.0/staticwebassets/msbuild.build.backend-dotnet.props
+C:/Users/ashish.james/Downloads/v0.11 name-updated/backend-dotnet/obj/Debug/net8.0/staticwebassets/msbuild.buildMultiTargeting.backend-dotnet.props
+C:/Users/ashish.james/Downloads/v0.11 name-updated/backend-dotnet/obj/Debug/net8.0/staticwebassets/msbuild.buildTransitive.backend-dotnet.props
+C:/Users/ashish.james/Downloads/v0.11 name-updated/backend-dotnet/obj/Debug/net8.0/staticwebassets.pack.json
+C:/Users/ashish.james/Downloads/v0.11 name-updated/backend-dotnet/obj/Debug/net8.0/scopedcss/bundle/backend-dotnet.styles.css
+C:/Users/ashish.james/Downloads/v0.11 name-updated/backend-dotnet/obj/Debug/net8.0/backend-.B2C7BE29.Up2Date
+C:/Users/ashish.james/Downloads/v0.11 name-updated/backend-dotnet/obj/Debug/net8.0/backend-dotnet.dll
+C:/Users/ashish.james/Downloads/v0.11 name-updated/backend-dotnet/obj/Debug/net8.0/refint/backend-dotnet.dll
+C:/Users/ashish.james/Downloads/v0.11 name-updated/backend-dotnet/obj/Debug/net8.0/backend-dotnet.pdb
+C:/Users/ashish.james/Downloads/v0.11 name-updated/backend-dotnet/obj/Debug/net8.0/backend-dotnet.genruntimeconfig.cache
+C:/Users/ashish.james/Downloads/v0.11 name-updated/backend-dotnet/obj/Debug/net8.0/ref/backend-dotnet.dll
+C:/Users/ashish.james/Downloads/v0.11 name-updated/backend-dotnet/bin/Debug/net8.0/Aspose.Words.Pdf2Word.dll
+/Users/ashishjames/contract-analysis-platform/backend-dotnet/bin/Debug/net8.0/appsettings.Development.json
+/Users/ashishjames/contract-analysis-platform/backend-dotnet/bin/Debug/net8.0/appsettings.json
+/Users/ashishjames/contract-analysis-platform/backend-dotnet/bin/Debug/net8.0/backend-dotnet
+/Users/ashishjames/contract-analysis-platform/backend-dotnet/bin/Debug/net8.0/backend-dotnet.deps.json
+/Users/ashishjames/contract-analysis-platform/backend-dotnet/bin/Debug/net8.0/backend-dotnet.runtimeconfig.json
+/Users/ashishjames/contract-analysis-platform/backend-dotnet/bin/Debug/net8.0/backend-dotnet.dll
+/Users/ashishjames/contract-analysis-platform/backend-dotnet/bin/Debug/net8.0/backend-dotnet.pdb
+/Users/ashishjames/contract-analysis-platform/backend-dotnet/bin/Debug/net8.0/Aspose.Words.Pdf2Word.dll
+/Users/ashishjames/contract-analysis-platform/backend-dotnet/bin/Debug/net8.0/Aspose.Words.dll
+/Users/ashishjames/contract-analysis-platform/backend-dotnet/bin/Debug/net8.0/Microsoft.AspNetCore.OpenApi.dll
+/Users/ashishjames/contract-analysis-platform/backend-dotnet/bin/Debug/net8.0/Microsoft.OpenApi.dll
+/Users/ashishjames/contract-analysis-platform/backend-dotnet/bin/Debug/net8.0/SkiaSharp.dll
+/Users/ashishjames/contract-analysis-platform/backend-dotnet/bin/Debug/net8.0/Swashbuckle.AspNetCore.Swagger.dll
+/Users/ashishjames/contract-analysis-platform/backend-dotnet/bin/Debug/net8.0/Swashbuckle.AspNetCore.SwaggerGen.dll
+/Users/ashishjames/contract-analysis-platform/backend-dotnet/bin/Debug/net8.0/Swashbuckle.AspNetCore.SwaggerUI.dll
+/Users/ashishjames/contract-analysis-platform/backend-dotnet/bin/Debug/net8.0/runtimes/osx/native/libSkiaSharp.dylib
+/Users/ashishjames/contract-analysis-platform/backend-dotnet/bin/Debug/net8.0/runtimes/win-arm64/native/libSkiaSharp.dll
+/Users/ashishjames/contract-analysis-platform/backend-dotnet/bin/Debug/net8.0/runtimes/win-x64/native/libSkiaSharp.dll
+/Users/ashishjames/contract-analysis-platform/backend-dotnet/bin/Debug/net8.0/runtimes/win-x86/native/libSkiaSharp.dll
+/Users/ashishjames/contract-analysis-platform/backend-dotnet/obj/Debug/net8.0/backend-dotnet.csproj.AssemblyReference.cache
+/Users/ashishjames/contract-analysis-platform/backend-dotnet/obj/Debug/net8.0/backend-dotnet.GeneratedMSBuildEditorConfig.editorconfig
+/Users/ashishjames/contract-analysis-platform/backend-dotnet/obj/Debug/net8.0/backend-dotnet.AssemblyInfoInputs.cache
+/Users/ashishjames/contract-analysis-platform/backend-dotnet/obj/Debug/net8.0/backend-dotnet.AssemblyInfo.cs
+/Users/ashishjames/contract-analysis-platform/backend-dotnet/obj/Debug/net8.0/backend-dotnet.csproj.CoreCompileInputs.cache
+/Users/ashishjames/contract-analysis-platform/backend-dotnet/obj/Debug/net8.0/backend-dotnet.MvcApplicationPartsAssemblyInfo.cs
+/Users/ashishjames/contract-analysis-platform/backend-dotnet/obj/Debug/net8.0/backend-dotnet.MvcApplicationPartsAssemblyInfo.cache
+/Users/ashishjames/contract-analysis-platform/backend-dotnet/obj/Debug/net8.0/backend-dotnet.sourcelink.json
+/Users/ashishjames/contract-analysis-platform/backend-dotnet/obj/Debug/net8.0/scopedcss/bundle/backend-dotnet.styles.css
+/Users/ashishjames/contract-analysis-platform/backend-dotnet/obj/Debug/net8.0/staticwebassets.build.json
+/Users/ashishjames/contract-analysis-platform/backend-dotnet/obj/Debug/net8.0/staticwebassets.development.json
+/Users/ashishjames/contract-analysis-platform/backend-dotnet/obj/Debug/net8.0/staticwebassets/msbuild.backend-dotnet.Microsoft.AspNetCore.StaticWebAssets.props
+/Users/ashishjames/contract-analysis-platform/backend-dotnet/obj/Debug/net8.0/staticwebassets/msbuild.build.backend-dotnet.props
+/Users/ashishjames/contract-analysis-platform/backend-dotnet/obj/Debug/net8.0/staticwebassets/msbuild.buildMultiTargeting.backend-dotnet.props
+/Users/ashishjames/contract-analysis-platform/backend-dotnet/obj/Debug/net8.0/staticwebassets/msbuild.buildTransitive.backend-dotnet.props
+/Users/ashishjames/contract-analysis-platform/backend-dotnet/obj/Debug/net8.0/staticwebassets.pack.json
+/Users/ashishjames/contract-analysis-platform/backend-dotnet/obj/Debug/net8.0/backend-.B2C7BE29.Up2Date
+/Users/ashishjames/contract-analysis-platform/backend-dotnet/obj/Debug/net8.0/backend-dotnet.dll
+/Users/ashishjames/contract-analysis-platform/backend-dotnet/obj/Debug/net8.0/refint/backend-dotnet.dll
+/Users/ashishjames/contract-analysis-platform/backend-dotnet/obj/Debug/net8.0/backend-dotnet.pdb
+/Users/ashishjames/contract-analysis-platform/backend-dotnet/obj/Debug/net8.0/backend-dotnet.genruntimeconfig.cache
+/Users/ashishjames/contract-analysis-platform/backend-dotnet/obj/Debug/net8.0/ref/backend-dotnet.dll
