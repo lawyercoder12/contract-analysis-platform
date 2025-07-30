@@ -230,7 +230,6 @@ app.MapPost("/parse-docx", async (HttpRequest request) =>
                     if (lastLabelAtLevel.ContainsKey(parentLevel))
                     {
                         var parentLabel = lastLabelAtLevel[parentLevel];
-                        // Remove trailing dot for comparison
                         var parentLabelClean = parentLabel.TrimEnd('.');
                         var numLabelClean = numLabel.TrimEnd('.');
                         if (!numLabelClean.StartsWith(parentLabelClean + "."))
@@ -244,9 +243,14 @@ app.MapPost("/parse-docx", async (HttpRequest request) =>
                         }
                     }
                 }
-                // Update lastLabelAtLevel for this level
+                // Update lastLabelAtLevel for this level and reset deeper levels
                 if (level.HasValue)
                 {
+                    var keysToRemove = lastLabelAtLevel.Keys.Where(k => k > level.Value).ToList();
+                    foreach (var key in keysToRemove)
+                    {
+                        lastLabelAtLevel.Remove(key);
+                    }
                     lastLabelAtLevel[level.Value] = numLabel;
                 }
                 
