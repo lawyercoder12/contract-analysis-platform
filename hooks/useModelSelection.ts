@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { ModelProviderId } from '../types';
+import { getApiKeyForModel, canUseEnvironmentKey } from '../services/environmentKeys';
 
 export interface UseModelSelectionReturn {
   providerId: ModelProviderId | null;
@@ -27,12 +28,7 @@ export const useModelSelection = (): UseModelSelectionReturn => {
       setModelId(storedModel);
 
       // Try to get API key from environment variables first
-      const envKey = storedProvider === 'openai' 
-        ? import.meta.env.VITE_OPENAI_API_KEY 
-        : storedProvider === 'gemini'
-        ? import.meta.env.VITE_GEMINI_API_KEY
-        : import.meta.env.VITE_GROQ_API_KEY;
-      
+      const envKey = getApiKeyForModel(storedProvider, storedModel);
       if (envKey) {
         setApiKey(envKey);
       } else {
@@ -52,12 +48,7 @@ export const useModelSelection = (): UseModelSelectionReturn => {
     sessionStorage.setItem('selected_model', selectedModel);
     
     // Try to get API key from environment variables first
-    const envKey = selectedProvider === 'openai' 
-      ? import.meta.env.VITE_OPENAI_API_KEY 
-      : selectedProvider === 'gemini'
-      ? import.meta.env.VITE_GEMINI_API_KEY
-      : import.meta.env.VITE_GROQ_API_KEY;
-    
+    const envKey = getApiKeyForModel(selectedProvider, selectedModel);
     if (envKey) {
       setApiKey(envKey);
     }

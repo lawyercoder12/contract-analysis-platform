@@ -21,6 +21,7 @@ import {
 import { ApiResponseSchema, ApiResponse, ApiErrorBody, AbstractNum } from '../types/api';
 import JSZip from 'jszip';
 import { GoogleGenAI, Type } from "@google/genai";
+import { BedrockRuntimeClient, InvokeModelCommand } from "@aws-sdk/client-bedrock-runtime";
 
 
 const API_CALL_BATCH_SIZE = 5;
@@ -47,7 +48,11 @@ const RETRYABLE_ERRORS = [
   'gateway_timeout',
   'timeout',
   'network_error',
-  'connection_error'
+  'connection_error',
+  'empty response',
+  'malformed response',
+  'json parse error',
+  'property name must be a string literal'
 ] as const;
 
 export class AnalysisError extends Error {
@@ -219,34 +224,121 @@ export async function validateApiKey(apiKey: string, provider: ModelProviderId, 
              }
         }
     } else if (provider === 'llama') {
-        await withRetry(async () => {
-            const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${apiKey}`
-                },
-                body: JSON.stringify({
-                    model: model,
-                    messages: [{ "role": "user", "content": "Just say the word Working" }],
-                    max_tokens: 5,
+        if (model === 'llama-3.3-70b-bedrock') {
+            // Validate Bedrock credentials
+            const [accessKeyId, secretAccessKey] = apiKey.split('|');
+            if (!accessKeyId || !secretAccessKey) {
+                throw new AnalysisError('Invalid AWS credentials format. Expected format: "accessKeyId|secretAccessKey"');
+            }
+
+            await withRetry(async () => {
+                const bedrockClient = new BedrockRuntimeClient({
+                    region: 'us-east-1',
+                    credentials: {
+                        accessKeyId: accessKeyId.trim(),
+                        secretAccessKey: secretAccessKey.trim()
+                    }
+                });
+
+                const prompt = `<|system|>
+You are a helpful assistant. Respond with exactly the word "Working" and nothing else.
+<|user|>
+Just say the word Working
+<|assistant|>`;
+
+                const requestBody = {
+                    prompt: prompt,
+                    max_gen_len: 5,
                     temperature: 0,
-                })
-            });
-    
-            const data = await response.json();
-    
-            if (!response.ok) {
-                // The API returns a JSON error body, so we stringify it to pass to the handler.
-                throw new Error(JSON.stringify(data));
-            }
-    
-            const message = data.choices?.[0]?.message?.content?.trim();
-            if (message !== 'Working') {
-                 const prettyResponse = JSON.stringify(data, null, 2);
-                 throw new Error(`API call succeeded, but the model returned an unexpected response. Expected "Working", but got:\n${prettyResponse}`);
-            }
-        }, 'API key validation', provider);
+                    top_p: 0.9
+                };
+
+                const command = new InvokeModelCommand({
+                    modelId: "meta.llama3-3-70b-instruct-v1:0",
+                    contentType: "application/json",
+                    body: JSON.stringify(requestBody)
+                });
+
+                const response = await bedrockClient.send(command);
+                const responseBody = JSON.parse(new TextDecoder().decode(response.body));
+
+                if (responseBody.error) {
+                    throw new Error(JSON.stringify(responseBody));
+                }
+
+                const message = responseBody.generation?.trim();
+                if (message !== 'Working') {
+                    const prettyResponse = JSON.stringify(responseBody, null, 2);
+                    throw new Error(`API call succeeded, but the model returned an unexpected response. Expected "Working", but got:\n${prettyResponse}`);
+                }
+            }, 'API key validation', provider);
+        } else if (model === 'llama-3.3-70b-watsonx') {
+            // Validate WatsonX API key
+            await withRetry(async () => {
+                const response = await fetch('https://us-south.ml.cloud.ibm.com/ml/v1/text/generation', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${apiKey}`,
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        model_id: 'meta-llama/llama-3.3-70b-instruct',
+                        input: {
+                            messages: [
+                                { role: 'user', content: 'Just say the word Working' }
+                            ]
+                        },
+                        parameters: {
+                            temperature: 0,
+                            max_new_tokens: 5
+                        }
+                    })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(JSON.stringify(data));
+                }
+
+                const content = data.results?.[0]?.generated_text?.trim();
+                if (content !== 'Working') {
+                    const prettyResponse = JSON.stringify(data, null, 2);
+                    throw new Error(`API call succeeded, but the model returned an unexpected response. Expected "Working", but got:\n${prettyResponse}`);
+                }
+            }, 'API key validation', provider);
+        } else {
+            // Original Groq validation for other Llama models
+            await withRetry(async () => {
+                const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${apiKey}`
+                    },
+                    body: JSON.stringify({
+                        model: model,
+                        messages: [{ "role": "user", "content": "Just say the word Working" }],
+                        max_tokens: 5,
+                        temperature: 0,
+                    })
+                });
+        
+                const data = await response.json();
+        
+                if (!response.ok) {
+                    // The API returns a JSON error body, so we stringify it to pass to the handler.
+                    throw new Error(JSON.stringify(data));
+                }
+        
+                const message = data.choices?.[0]?.message?.content?.trim();
+                if (message !== 'Working') {
+                     const prettyResponse = JSON.stringify(data, null, 2);
+                     throw new Error(`API call succeeded, but the model returned an unexpected response. Expected "Working", but got:\n${prettyResponse}`);
+                }
+            }, 'API key validation', provider);
+        }
     } else {
         throw new AnalysisError(`API Key validation for provider '${provider}' is not supported.`);
     }
@@ -258,6 +350,7 @@ export class ContractAnalyzer {
   private provider: ModelProviderId;
   private model: string;
   private ai: GoogleGenAI | null = null;
+  private bedrockClient: BedrockRuntimeClient | null = null;
 
   constructor(apiKey: string, provider: ModelProviderId, model: string) {
     if (!apiKey) {
@@ -269,6 +362,20 @@ export class ContractAnalyzer {
 
     if (this.provider === 'gemini') {
         this.ai = new GoogleGenAI({apiKey: this.apiKey});
+    } else if (this.provider === 'llama' && this.model === 'llama-3.3-70b-bedrock') {
+        // Parse AWS credentials from the API key
+        const [accessKeyId, secretAccessKey] = this.apiKey.split('|');
+        if (!accessKeyId || !secretAccessKey) {
+            throw new AnalysisError('Invalid AWS credentials format. Expected format: "accessKeyId|secretAccessKey"');
+        }
+        
+        this.bedrockClient = new BedrockRuntimeClient({
+            region: 'us-east-1', // Default region, can be made configurable
+            credentials: {
+                accessKeyId: accessKeyId.trim(),
+                secretAccessKey: secretAccessKey.trim()
+            }
+        });
     }
   }
 
@@ -362,6 +469,194 @@ export class ContractAnalyzer {
 
           // The content is a JSON string due to json_object mode, so parse it.
           return JSON.parse(content);
+
+      } else if (this.provider === 'llama' && this.model === 'llama-3.3-70b-bedrock' && this.bedrockClient) {
+          // Bedrock Llama 3.3 70B implementation
+          const prompt = `<|system|>
+${systemMessage}
+<|user|>
+${userMessage}
+<|assistant|>`;
+
+          const requestBody = {
+              prompt: prompt,
+              max_gen_len: 8000,
+              temperature: 0.8,
+              top_p: 0.9
+          };
+
+                          const command = new InvokeModelCommand({
+                    modelId: "us.meta.llama3-3-70b-instruct-v1:0",
+                    contentType: "application/json",
+                    body: JSON.stringify(requestBody)
+                });
+
+          const response = await this.bedrockClient.send(command);
+          const responseBody = JSON.parse(new TextDecoder().decode(response.body));
+
+          if (responseBody.error) {
+              throw new Error(JSON.stringify(responseBody));
+          }
+
+          const content = responseBody.generation;
+          if (!content) {
+              throw new Error('Bedrock API returned an empty or malformed response content. - in such instances, the chunk should have been retried!');
+          }
+
+          // Parse the JSON response from the model
+          try {
+              // Extract JSON from markdown code blocks if present
+              let jsonContent = content.trim();
+              
+              // First, try to find JSON within markdown code blocks
+              const jsonMatch = jsonContent.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
+              if (jsonMatch) {
+                  jsonContent = jsonMatch[1];
+              } else {
+                  // Try to find JSON object anywhere in the text
+                  const jsonObjectMatch = jsonContent.match(/\{[\s\S]*\}/);
+                  if (jsonObjectMatch) {
+                      jsonContent = jsonObjectMatch[0];
+                  } else {
+                      // Remove markdown code block markers if no match found
+                      if (jsonContent.startsWith('```json')) {
+                          jsonContent = jsonContent.substring(7);
+                      }
+                      if (jsonContent.startsWith('```')) {
+                          jsonContent = jsonContent.substring(3);
+                      }
+                      if (jsonContent.endsWith('```')) {
+                          jsonContent = jsonContent.substring(0, jsonContent.length - 3);
+                      }
+                  }
+              }
+              
+              // Clean up any remaining whitespace and try to parse
+              jsonContent = jsonContent.trim();
+              
+              // Additional cleanup: remove any text before the first {
+              const firstBraceIndex = jsonContent.indexOf('{');
+              if (firstBraceIndex > 0) {
+                  jsonContent = jsonContent.substring(firstBraceIndex);
+              }
+              
+              // Additional cleanup: remove any text after the last }
+              const lastBraceIndex = jsonContent.lastIndexOf('}');
+              if (lastBraceIndex >= 0 && lastBraceIndex < jsonContent.length - 1) {
+                  jsonContent = jsonContent.substring(0, lastBraceIndex + 1);
+              }
+              
+              // Additional cleanup: remove Python-style tags and other non-JSON content
+              // Remove tags like <|python_tag|>, <|system|>, <|user|>, <|assistant|>, etc.
+              jsonContent = jsonContent.replace(/<\|[^|]*\|>/g, '');
+              
+              // Remove any remaining non-JSON content that might interfere
+              // This handles cases where the model adds explanatory text or tags
+              jsonContent = jsonContent.replace(/^[^{]*/, ''); // Remove anything before first {
+              jsonContent = jsonContent.replace(/}[^}]*$/, '}'); // Remove anything after last }
+              
+              return JSON.parse(jsonContent);
+          } catch (parseError) {
+              // Handle JSON parsing errors similar to WatsonX Llama
+              console.warn('Failed to parse JSON response from Bedrock Llama:', content);
+              throw new Error(`JSON parsing failed: ${parseError instanceof Error ? parseError.message : 'Unknown error'}. Response was: ${content.substring(0, 200)}...`);
+          }
+
+      } else if (this.provider === 'llama' && this.model === 'llama-3.3-70b-watsonx') {
+          // WatsonX Llama 3.3 70B implementation
+          const response = await fetch('https://us-south.ml.cloud.ibm.com/ml/v1/text/generation', {
+              method: 'POST',
+              headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${this.apiKey}`,
+                  'Accept': 'application/json'
+              },
+              body: JSON.stringify({
+                  model_id: 'meta-llama/llama-3.3-70b-instruct',
+                  input: {
+                      messages: [
+                          { role: 'system', content: systemMessage },
+                          { role: 'user', content: userMessage }
+                      ]
+                  },
+                  parameters: {
+                      temperature: 0.1,
+                      max_new_tokens: 8000,
+                      top_p: 0.9,
+                      response_format: { type: 'json_object' }
+                  }
+              })
+          });
+
+          const data = await response.json();
+
+          if (!response.ok) {
+              throw new Error(JSON.stringify(data));
+          }
+
+          const content = data.results?.[0]?.generated_text;
+          if (!content) {
+              throw new Error('WatsonX API returned an empty or malformed response content.');
+          }
+
+          // Parse the JSON response from the model
+          try {
+              // Extract JSON from markdown code blocks if present
+              let jsonContent = content.trim();
+              
+              // First, try to find JSON within markdown code blocks
+              const jsonMatch = jsonContent.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
+              if (jsonMatch) {
+                  jsonContent = jsonMatch[1];
+              } else {
+                  // Try to find JSON object anywhere in the text
+                  const jsonObjectMatch = jsonContent.match(/\{[\s\S]*\}/);
+                  if (jsonObjectMatch) {
+                      jsonContent = jsonObjectMatch[0];
+                  } else {
+                      // Remove markdown code block markers if no match found
+                      if (jsonContent.startsWith('```json')) {
+                          jsonContent = jsonContent.substring(7);
+                      }
+                      if (jsonContent.startsWith('```')) {
+                          jsonContent = jsonContent.substring(3);
+                      }
+                      if (jsonContent.endsWith('```')) {
+                          jsonContent = jsonContent.substring(0, jsonContent.length - 3);
+                      }
+                  }
+              }
+              
+              // Clean up any remaining whitespace and try to parse
+              jsonContent = jsonContent.trim();
+              
+              // Additional cleanup: remove any text before the first {
+              const firstBraceIndex = jsonContent.indexOf('{');
+              if (firstBraceIndex > 0) {
+                  jsonContent = jsonContent.substring(firstBraceIndex);
+              }
+              
+              // Additional cleanup: remove any text after the last }
+              const lastBraceIndex = jsonContent.lastIndexOf('}');
+              if (lastBraceIndex >= 0 && lastBraceIndex < jsonContent.length - 1) {
+                  jsonContent = jsonContent.substring(0, lastBraceIndex + 1);
+              }
+              
+              // Additional cleanup: remove Python-style tags and other non-JSON content
+              // Remove tags like <|python_tag|>, <|system|>, <|user|>, <|assistant|>, etc.
+              jsonContent = jsonContent.replace(/<\|[^|]*\|>/g, '');
+              
+              // Remove any remaining non-JSON content that might interfere
+              // This handles cases where the model adds explanatory text or tags
+              jsonContent = jsonContent.replace(/^[^{]*/, ''); // Remove anything before first {
+              jsonContent = jsonContent.replace(/}[^}]*$/, '}'); // Remove anything after last }
+              
+              return JSON.parse(jsonContent);
+          } catch (parseError) {
+              // Handle JSON parsing errors for WatsonX Llama
+              console.warn('Failed to parse JSON response from WatsonX Llama:', content);
+              throw new Error(`JSON parsing failed: ${parseError instanceof Error ? parseError.message : 'Unknown error'}. Response was: ${content.substring(0, 200)}...`);
+          }
 
       } else if (this.provider === 'llama') {
           const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {

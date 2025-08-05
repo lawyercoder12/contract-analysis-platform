@@ -1,14 +1,16 @@
 import React, { useCallback, useState } from 'react';
-import { UploadIcon } from './Icons';
+import { UploadIcon, BackArrowIcon } from './Icons';
 
 interface FileUploadProps {
   onFileUpload: (files: File[]) => void;
+  onBack?: () => void;
   maxFiles?: number;
   existingFiles?: string[];
 }
 
 export const FileUpload: React.FC<FileUploadProps> = ({ 
   onFileUpload, 
+  onBack,
   maxFiles = 10,
   existingFiles = []
 }) => {
@@ -69,37 +71,48 @@ export const FileUpload: React.FC<FileUploadProps> = ({
   const idleClasses = "border-gray-300 dark:border-midnight-lighter hover:border-teal/70 dark:hover:border-lilac/50";
 
   return (
-    <div 
-      className={`${baseClasses} ${isDragging ? draggingClasses : idleClasses}`}
-      onDrop={onDrop}
-      onDragOver={onDragOver}
-      onDragEnter={onDragEnter}
-      onDragLeave={onDragLeave}
-    >
-      <input
-        id="file-upload"
-        name="file-upload"
-        type="file"
-        className="sr-only"
-        accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-        multiple
-        onChange={onInputChange}
-      />
-      <label htmlFor="file-upload" className="cursor-pointer">
-        <UploadIcon className="mx-auto h-12 w-12 text-gray-400 dark:text-cloud/60" />
-        <span className="mt-2 block text-lg font-semibold text-gray-800 dark:text-cloud">
-          Upload .docx files
-        </span>
-        <p className="mt-1 block text-sm text-gray-500 dark:text-cloud/60">
-          or drag and drop multiple files
-        </p>
-        <p className="mt-2 text-xs text-gray-400 dark:text-cloud/50">
-          {existingFiles.length > 0 
-            ? `${existingFiles.length} files uploaded • ${maxFiles - existingFiles.length} remaining`
-            : `Up to ${maxFiles} files supported`
-          }
-        </p>
-      </label>
+    <div className="relative">
+      {onBack && (
+        <button
+          onClick={onBack}
+          className="absolute -top-2 -left-2 z-10 flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-600 dark:text-cloud/70 hover:text-gray-900 dark:hover:text-cloud transition-colors duration-200"
+        >
+          <BackArrowIcon className="w-4 h-4" />
+          Back to Model Selection
+        </button>
+      )}
+      <div 
+        className={`${baseClasses} ${isDragging ? draggingClasses : idleClasses}`}
+        onDrop={onDrop}
+        onDragOver={onDragOver}
+        onDragEnter={onDragEnter}
+        onDragLeave={onDragLeave}
+      >
+        <input
+          id="file-upload"
+          name="file-upload"
+          type="file"
+          className="sr-only"
+          accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+          multiple
+          onChange={onInputChange}
+        />
+        <label htmlFor="file-upload" className="cursor-pointer">
+          <UploadIcon className="mx-auto h-12 w-12 text-gray-400 dark:text-cloud/60" />
+          <span className="mt-2 block text-lg font-semibold text-gray-800 dark:text-cloud">
+            Upload .docx files
+          </span>
+          <p className="mt-1 block text-sm text-gray-500 dark:text-cloud/60">
+            or drag and drop multiple files
+          </p>
+          <p className="mt-2 text-xs text-gray-400 dark:text-cloud/50">
+            {existingFiles.length > 0 
+              ? `${existingFiles.length} files uploaded • ${maxFiles - existingFiles.length} remaining`
+              : `Up to ${maxFiles} files supported`
+            }
+          </p>
+        </label>
+      </div>
     </div>
   );
 };

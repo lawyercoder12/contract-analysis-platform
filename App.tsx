@@ -18,6 +18,7 @@ import { useAnalysisState } from './hooks/useAnalysisState';
 import { useApiKeyValidation } from './hooks/useApiKeyValidation';
 import { useDocumentManager } from './hooks/useDocumentManager';
 import { useBatchAnalysis } from './hooks/useBatchAnalysis';
+import { canUseEnvironmentKey, getApiKeyForModel } from './services/environmentKeys';
 
 const App: React.FC = () => {
   const { 
@@ -91,7 +92,9 @@ const App: React.FC = () => {
 
     const isValid = await validateAndStoreKey(key, providerId, modelId);
     if (isValid) {
-      setApiKey(key);
+      // Use environment key if available, otherwise use user-provided key
+      const envKey = getApiKeyForModel(providerId, modelId);
+      setApiKey(envKey || key);
     }
   }, [providerId, modelId, validateAndStoreKey, setApiKey]);
 
@@ -180,6 +183,14 @@ const App: React.FC = () => {
     clearValidationState();
   }, [providerId, setApiKey, clearValidationState]);
 
+  const handleBackToModelSelection = useCallback(() => {
+    clearSelection();
+    resetToIdle();
+    clearValidationState();
+    clearAllDocuments();
+    setAppState('needs_model_selection');
+  }, [clearSelection, resetToIdle, clearValidationState, clearAllDocuments, setAppState]);
+
   const renderContent = () => {
     const providerConfig = MODELS_CONFIG.find(p => p.id === providerId);
     
@@ -187,6 +198,16 @@ const App: React.FC = () => {
       case 'needs_model_selection':
         return <ModelSelector onModelSelect={handleModelSelect} />;
       case 'needs_key':
+        // Check if we can use environment variables for this model
+        if (providerId && modelId && canUseEnvironmentKey(providerId, modelId)) {
+          const envKey = getApiKeyForModel(providerId, modelId);
+          if (envKey) {
+            // Automatically use environment key and proceed to idle state
+            setApiKey(envKey);
+            setAppState('idle');
+            return null; // Return null to prevent rendering while state updates
+          }
+        }
         return providerConfig ? <ApiKeyInput provider={providerConfig} onSubmit={handleKeySubmit} error={keyValidationError} isLoading={isKeyValidating} /> : <ModelSelector onModelSelect={handleModelSelect} />;
       case 'loading':
         if (isAnalyzing) {
@@ -249,6 +270,7 @@ const App: React.FC = () => {
                   handleMultiFileAnalysis(files);
                 }
               }}
+              onBack={handleBackToModelSelection}
               maxFiles={10}
               existingFiles={documents.map(d => d.name)}
             />

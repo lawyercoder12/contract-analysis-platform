@@ -47,7 +47,7 @@ export const MODELS_CONFIG: Provider[] = [
     {
         id: 'llama',
         name: 'Llama',
-        apiKeyName: 'Groq API Key',
+        apiKeyName: 'Groq API Key / AWS Credentials',
         Icon: ({ className }) => React.createElement('svg', {
                 xmlns: "http://www.w3.org/2000/svg",
                 viewBox: "0 0 24 24",
@@ -63,6 +63,16 @@ export const MODELS_CONFIG: Provider[] = [
                 id: 'llama-3.3-70b-versatile',
                 name: 'Llama 3.3 70B',
                 description: 'A powerful and versatile large language model, ideal for complex contract analysis tasks.'
+            },
+            {
+                id: 'llama-3.3-70b-bedrock',
+                name: 'Llama 3.3 70B (Bedrock - use this)',
+                description: 'Llama 3.3 70B model hosted on AWS Bedrock, optimized for contract analysis with robust error handling.'
+            },
+            {
+                id: 'llama-3.3-70b-watsonx',
+                name: 'Llama 3.3 70B (WatsonX)',
+                description: 'Llama 3.3 70B model hosted on IBM WatsonX, optimized for contract analysis with enterprise-grade reliability.'
             }
         ]
     }
