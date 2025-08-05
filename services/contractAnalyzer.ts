@@ -231,6 +231,8 @@ export async function validateApiKey(apiKey: string, provider: ModelProviderId, 
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
+                        'x-vercel-protection-bypass': 'aB7x9QeL0vT1mHpJrY3cFwEuZkNdGsX2',
+                        'x-vercel-set-bypass-cookie': 'true'
                     },
                     body: JSON.stringify({
                         systemMessage: 'You are a helpful assistant. Respond with exactly the word "Working" and nothing else.',
@@ -441,6 +443,8 @@ export class ContractAnalyzer {
               method: 'POST',
               headers: {
                   'Content-Type': 'application/json',
+                  'x-vercel-protection-bypass': 'aB7x9QeL0vT1mHpJrY3cFwEuZkNdGsX2',
+                  'x-vercel-set-bypass-cookie': 'true'
               },
               body: JSON.stringify({
                   systemMessage,
