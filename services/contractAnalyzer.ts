@@ -227,7 +227,7 @@ export async function validateApiKey(apiKey: string, provider: ModelProviderId, 
         if (model === 'llama-3.3-70b-bedrock') {
             // Validate Bedrock credentials via API route
             await withRetry(async () => {
-                const response = await fetch('/api/bedrock/invoke', {
+                const response = await fetch('/api/bedrock', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -437,7 +437,7 @@ export class ContractAnalyzer {
 
       } else if (this.provider === 'llama' && this.model === 'llama-3.3-70b-bedrock') {
           // Bedrock Llama 3.3 70B implementation via API route
-          const response = await fetch('/api/bedrock/invoke', {
+          const response = await fetch('/api/bedrock', {
               method: 'POST',
               headers: {
                   'Content-Type': 'application/json',
