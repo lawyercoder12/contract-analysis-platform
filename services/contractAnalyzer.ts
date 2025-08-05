@@ -234,22 +234,50 @@ export async function validateApiKey(apiKey: string, provider: ModelProviderId, 
                         'x-vercel-protection-bypass': 'aB7x9QeL0vT1mHpJrY3cFwEuZkNdGsX2',
                         'x-vercel-set-bypass-cookie': 'true'
                     },
+                    credentials: 'include',
                     body: JSON.stringify({
                         systemMessage: 'You are a helpful assistant. Respond with exactly the word "Working" and nothing else.',
                         userMessage: 'Just say the word Working'
                     })
                 });
 
-                const data = await response.json();
+                // If we get a redirect, follow it
+                if (response.redirected) {
+                    const redirectedResponse = await fetch(response.url, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        credentials: 'include',
+                        body: JSON.stringify({
+                            systemMessage: 'You are a helpful assistant. Respond with exactly the word "Working" and nothing else.',
+                            userMessage: 'Just say the word Working'
+                        })
+                    });
+                    
+                    const data = await redirectedResponse.json();
+                    
+                    if (!redirectedResponse.ok) {
+                        throw new Error(JSON.stringify(data));
+                    }
+                    
+                    const content = data.trim();
+                    if (content !== 'Working') {
+                        const prettyResponse = JSON.stringify(data, null, 2);
+                        throw new Error(`API call succeeded, but the model returned an unexpected response. Expected "Working", but got:\n${prettyResponse}`);
+                    }
+                } else {
+                    const data = await response.json();
 
-                if (!response.ok) {
-                    throw new Error(JSON.stringify(data));
-                }
+                    if (!response.ok) {
+                        throw new Error(JSON.stringify(data));
+                    }
 
-                const content = data.trim();
-                if (content !== 'Working') {
-                    const prettyResponse = JSON.stringify(data, null, 2);
-                    throw new Error(`API call succeeded, but the model returned an unexpected response. Expected "Working", but got:\n${prettyResponse}`);
+                    const content = data.trim();
+                    if (content !== 'Working') {
+                        const prettyResponse = JSON.stringify(data, null, 2);
+                        throw new Error(`API call succeeded, but the model returned an unexpected response. Expected "Working", but got:\n${prettyResponse}`);
+                    }
                 }
             }, 'API key validation', provider);
         } else if (model === 'llama-3.3-70b-watsonx') {
@@ -446,12 +474,37 @@ export class ContractAnalyzer {
                   'x-vercel-protection-bypass': 'aB7x9QeL0vT1mHpJrY3cFwEuZkNdGsX2',
                   'x-vercel-set-bypass-cookie': 'true'
               },
+              credentials: 'include', // Include cookies
               body: JSON.stringify({
                   systemMessage,
                   userMessage,
                   responseSchema: convertedSchema
               })
           });
+
+          // If we get a redirect, follow it
+          if (response.redirected) {
+              const redirectedResponse = await fetch(response.url, {
+                  method: 'POST',
+                  headers: {
+                      'Content-Type': 'application/json',
+                  },
+                  credentials: 'include',
+                  body: JSON.stringify({
+                      systemMessage,
+                      userMessage,
+                      responseSchema: convertedSchema
+                  })
+              });
+              
+              const data = await redirectedResponse.json();
+              
+              if (!redirectedResponse.ok) {
+                  throw new Error(JSON.stringify(data));
+              }
+              
+              return data;
+          }
 
           const data = await response.json();
 
