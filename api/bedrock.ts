@@ -16,7 +16,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    console.log('Bedrock API called with headers:', req.headers);
+    console.log('=== BEDROCK API DIAGNOSTIC TEST STARTED ===');
+    console.log('Request headers:', JSON.stringify(req.headers, null, 2));
     
     const { systemMessage, userMessage } = req.body;
 
@@ -25,149 +26,196 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(400).json({ error: 'Missing required parameters' });
     }
 
-    // Get AWS credentials from environment variables
+    // Test 1: Environment Variables Check
+    console.log('=== TEST 1: Environment Variables ===');
     const accessKeyId = process.env.VITE_BEDROCK_ACCESS_KEY_ID;
     const secretAccessKey = process.env.VITE_BEDROCK_SECRET_ACCESS_KEY;
+    const nodeEnv = process.env.NODE_ENV;
+    const vercelEnv = process.env.VERCEL_ENV;
 
-    console.log('AWS credentials check:', { 
+    console.log('Environment check:', { 
       hasAccessKeyId: !!accessKeyId, 
       hasSecretAccessKey: !!secretAccessKey,
       accessKeyIdLength: accessKeyId?.length,
-      secretAccessKeyLength: secretAccessKey?.length
+      secretAccessKeyLength: secretAccessKey?.length,
+      nodeEnv,
+      vercelEnv,
+      accessKeyIdPrefix: accessKeyId?.substring(0, 5) + '...',
+      secretAccessKeyPrefix: secretAccessKey?.substring(0, 5) + '...'
     });
 
     if (!accessKeyId || !secretAccessKey) {
-      console.log('AWS credentials not configured');
+      console.log('❌ AWS credentials not configured');
       return res.status(500).json({ error: 'AWS credentials not configured' });
     }
 
-    // Initialize Bedrock client with us-west-2 region (where Bedrock is available)
-    const bedrockClient = new BedrockRuntimeClient({
-      region: 'us-west-2', // Changed from us-east-1 to us-west-2
-      credentials: {
-        accessKeyId: accessKeyId,
-        secretAccessKey: secretAccessKey
-      }
-    });
-
-    console.log('Bedrock client initialized, making API call...');
-
-    // Create the prompt for Llama 3.3 70B
-    const prompt = `<|system|>
-${systemMessage}
-<|user|>
-${userMessage}
-<|assistant|>`;
-
-    const requestBody = {
-      prompt: prompt,
-      max_gen_len: 8000,
-      temperature: 0.1,
-      top_p: 0.9
-    };
-
-    // Try a different model ID that might be more commonly available
-    const modelId = "meta.llama3-3-70b-instruct-v1:0";
-    console.log('Trying model ID:', modelId);
-
-    const command = new InvokeModelCommand({
-      modelId: modelId,
-      contentType: "application/json",
-      body: JSON.stringify(requestBody)
-    });
-
-    console.log('Sending Bedrock command with modelId:', command.input.modelId);
-    
+    // Test 2: AWS SDK Version Check
+    console.log('=== TEST 2: AWS SDK Version ===');
     try {
-      const response = await bedrockClient.send(command);
-      console.log('Bedrock response received');
+      const { version } = require('@aws-sdk/client-bedrock-runtime/package.json');
+      console.log('AWS SDK Bedrock Runtime version:', version);
+    } catch (e) {
+      console.log('Could not determine AWS SDK version:', e);
+    }
+
+    // Test 3: Different Regions
+    const regions = ['us-west-2', 'us-east-1', 'eu-west-1'];
+    
+    for (const region of regions) {
+      console.log(`=== TEST 3: Testing Region ${region} ===`);
       
-      const responseBody = JSON.parse(new TextDecoder().decode(response.body));
-
-      if (responseBody.error) {
-        console.log('Bedrock API error:', responseBody.error);
-        return res.status(500).json({ error: responseBody.error });
-      }
-
-      const content = responseBody.generation;
-      if (!content) {
-        console.log('Empty response from Bedrock');
-        return res.status(500).json({ error: 'Empty response from Bedrock' });
-      }
-
-      console.log('Bedrock content received, length:', content.length);
-
-      // Parse the JSON response from the model
       try {
-        // Extract JSON from markdown code blocks if present
-        let jsonContent = content.trim();
-        
-        // First, try to find JSON within markdown code blocks
-        const jsonMatch = jsonContent.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
-        if (jsonMatch) {
-          jsonContent = jsonMatch[1];
-        } else {
-          // Try to find JSON object anywhere in the text
-          const jsonObjectMatch = jsonContent.match(/\{[\s\S]*\}/);
-          if (jsonObjectMatch) {
-            jsonContent = jsonObjectMatch[0];
-          } else {
-            // Remove markdown code block markers if no match found
-            if (jsonContent.startsWith('```json')) {
-              jsonContent = jsonContent.substring(7);
-            }
-            if (jsonContent.startsWith('```')) {
-              jsonContent = jsonContent.substring(3);
-            }
-            if (jsonContent.endsWith('```')) {
-              jsonContent = jsonContent.substring(0, jsonContent.length - 3);
+        // Initialize Bedrock client with current region
+        const bedrockClient = new BedrockRuntimeClient({
+          region: region,
+          credentials: {
+            accessKeyId: accessKeyId,
+            secretAccessKey: secretAccessKey
+          },
+          // Add timeout and retry configuration
+          maxAttempts: 1,
+          requestHandler: {
+            httpOptions: {
+              timeout: 10000 // 10 seconds
             }
           }
-        }
-        
-        // Clean up any remaining whitespace and try to parse
-        jsonContent = jsonContent.trim();
-        
-        // Additional cleanup: remove any text before the first {
-        const firstBraceIndex = jsonContent.indexOf('{');
-        if (firstBraceIndex > 0) {
-          jsonContent = jsonContent.substring(firstBraceIndex);
-        }
-        
-        // Additional cleanup: remove any text after the last }
-        const lastBraceIndex = jsonContent.lastIndexOf('}');
-        if (lastBraceIndex >= 0 && lastBraceIndex < jsonContent.length - 1) {
-          jsonContent = jsonContent.substring(0, lastBraceIndex + 1);
-        }
-        
-        // Additional cleanup: remove Python-style tags and other non-JSON content
-        jsonContent = jsonContent.replace(/<\|[^|]*\|>/g, '');
-        jsonContent = jsonContent.replace(/^[^{]*/, '');
-        jsonContent = jsonContent.replace(/}[^}]*$/, '}');
-        
-        console.log('Parsed JSON content:', jsonContent.substring(0, 200) + '...');
-        
-        const parsedResponse = JSON.parse(jsonContent);
-        console.log('Successfully parsed JSON response');
-        return res.status(200).json(parsedResponse);
-      } catch (parseError) {
-        console.warn('Failed to parse JSON response from Bedrock:', content);
-        return res.status(500).json({ 
-          error: `JSON parsing failed: ${parseError instanceof Error ? parseError.message : 'Unknown error'}. Response was: ${content.substring(0, 200)}...` 
         });
+
+        console.log(`✅ Bedrock client initialized for region: ${region}`);
+
+        // Test 4: Different Models
+        const models = [
+          "meta.llama3-3-70b-instruct-v1:0",
+          "meta.llama3-3-8b-instruct-v1:0", 
+          "anthropic.claude-3-sonnet-20240229-v1:0",
+          "amazon.titan-text-express-v1"
+        ];
+
+        for (const modelId of models) {
+          console.log(`=== TEST 4: Testing Model ${modelId} in ${region} ===`);
+          
+          try {
+            // Create a simple test prompt
+            const testPrompt = `<|system|>
+You are a helpful assistant. Respond with exactly the word "Working" and nothing else.
+<|user|>
+Just say the word Working
+<|assistant|>`;
+
+            const requestBody = {
+              prompt: testPrompt,
+              max_gen_len: 100,
+              temperature: 0.1,
+              top_p: 0.9
+            };
+
+            console.log(`Sending test request to ${modelId} in ${region}...`);
+            console.log('Request body:', JSON.stringify(requestBody, null, 2));
+
+            const command = new InvokeModelCommand({
+              modelId: modelId,
+              contentType: "application/json",
+              body: JSON.stringify(requestBody)
+            });
+
+            console.log(`Command created for ${modelId}`);
+            
+            // Test the actual API call
+            const response = await bedrockClient.send(command);
+            console.log(`✅ SUCCESS: ${modelId} in ${region} responded!`);
+            
+            const responseBody = JSON.parse(new TextDecoder().decode(response.body));
+            console.log('Response body:', JSON.stringify(responseBody, null, 2));
+
+            if (responseBody.error) {
+              console.log(`❌ Model ${modelId} returned error:`, responseBody.error);
+              continue;
+            }
+
+            const content = responseBody.generation;
+            if (!content) {
+              console.log(`❌ Model ${modelId} returned empty response`);
+              continue;
+            }
+
+            console.log(`✅ Model ${modelId} content:`, content.substring(0, 200));
+            
+            // If we get here, we found a working model!
+            return res.status(200).json({ 
+              success: true,
+              model: modelId,
+              region: region,
+              content: content,
+              message: "Found working model configuration!"
+            });
+
+          } catch (modelError) {
+            console.log(`❌ Model ${modelId} in ${region} failed:`, {
+              error: modelError instanceof Error ? modelError.message : 'Unknown error',
+              code: (modelError as any)?.code,
+              name: (modelError as any)?.name,
+              stack: modelError instanceof Error ? modelError.stack : undefined
+            });
+            continue;
+          }
+        }
+      } catch (regionError) {
+        console.log(`❌ Region ${region} failed:`, {
+          error: regionError instanceof Error ? regionError.message : 'Unknown error',
+          code: (regionError as any)?.code,
+          name: (regionError as any)?.name,
+          stack: regionError instanceof Error ? regionError.stack : undefined
+        });
+        continue;
       }
-    } catch (bedrockError) {
-      console.error('Bedrock API call failed:', bedrockError);
-      
-      // Return a more detailed error message
-      return res.status(500).json({ 
-        error: `Bedrock API call failed: ${bedrockError instanceof Error ? bedrockError.message : 'Unknown error'}. This might be due to: 1) AWS credentials not having Bedrock permissions, 2) Model not available in your AWS account, 3) Bedrock service not enabled in your AWS account.` 
-      });
     }
-  } catch (error) {
-    console.error('Bedrock API error:', error);
+
+    // Test 5: Network Connectivity Test
+    console.log('=== TEST 5: Network Connectivity ===');
+    try {
+      const https = require('https');
+      const testUrl = 'https://bedrock-runtime.us-west-2.amazonaws.com';
+      
+      const testRequest = https.get(testUrl, (response: any) => {
+        console.log(`Network test to ${testUrl}:`, response.statusCode);
+      });
+      
+      testRequest.on('error', (error: any) => {
+        console.log(`Network test failed:`, error.message);
+      });
+      
+      testRequest.setTimeout(5000, () => {
+        console.log('Network test timeout');
+        testRequest.destroy();
+      });
+    } catch (networkError) {
+      console.log('Network test error:', networkError);
+    }
+
+    // If we get here, no model worked
+    console.log('=== ALL TESTS FAILED ===');
     return res.status(500).json({ 
-      error: error instanceof Error ? error.message : 'An unexpected error occurred' 
+      error: 'All Bedrock models and regions failed. This suggests: 1) AWS credentials lack Bedrock permissions, 2) Bedrock not enabled in AWS account, 3) Network connectivity issues on Vercel, 4) Model access not granted.',
+      diagnostic: {
+        hasCredentials: !!accessKeyId && !!secretAccessKey,
+        regionsTested: regions,
+        modelsTested: ["meta.llama3-3-70b-instruct-v1:0", "meta.llama3-3-8b-instruct-v1:0", "anthropic.claude-3-sonnet-20240229-v1:0", "amazon.titan-text-express-v1"],
+        environment: { nodeEnv, vercelEnv }
+      }
+    });
+
+  } catch (error) {
+    console.error('=== CRITICAL ERROR ===');
+    console.error('Unexpected error:', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      code: (error as any)?.code,
+      name: (error as any)?.name,
+      stack: error instanceof Error ? error.stack : undefined
+    });
+    
+    return res.status(500).json({ 
+      error: `Critical error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      details: error instanceof Error ? error.stack : undefined
     });
   }
 } 
