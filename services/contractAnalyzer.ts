@@ -225,50 +225,28 @@ export async function validateApiKey(apiKey: string, provider: ModelProviderId, 
         }
     } else if (provider === 'llama') {
         if (model === 'llama-3.3-70b-bedrock') {
-            // Validate Bedrock credentials
-            const [accessKeyId, secretAccessKey] = apiKey.split('|');
-            if (!accessKeyId || !secretAccessKey) {
-                throw new AnalysisError('Invalid AWS credentials format. Expected format: "accessKeyId|secretAccessKey"');
-            }
-
+            // Validate Bedrock credentials via API route
             await withRetry(async () => {
-                const bedrockClient = new BedrockRuntimeClient({
-                    region: 'us-east-1',
-                    credentials: {
-                        accessKeyId: accessKeyId.trim(),
-                        secretAccessKey: secretAccessKey.trim()
-                    }
+                const response = await fetch('/api/bedrock/invoke', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        systemMessage: 'You are a helpful assistant. Respond with exactly the word "Working" and nothing else.',
+                        userMessage: 'Just say the word Working'
+                    })
                 });
 
-                const prompt = `<|system|>
-You are a helpful assistant. Respond with exactly the word "Working" and nothing else.
-<|user|>
-Just say the word Working
-<|assistant|>`;
+                const data = await response.json();
 
-                const requestBody = {
-                    prompt: prompt,
-                    max_gen_len: 5,
-                    temperature: 0,
-                    top_p: 0.9
-                };
-
-                const command = new InvokeModelCommand({
-                    modelId: "meta.llama3-3-70b-instruct-v1:0",
-                    contentType: "application/json",
-                    body: JSON.stringify(requestBody)
-                });
-
-                const response = await bedrockClient.send(command);
-                const responseBody = JSON.parse(new TextDecoder().decode(response.body));
-
-                if (responseBody.error) {
-                    throw new Error(JSON.stringify(responseBody));
+                if (!response.ok) {
+                    throw new Error(JSON.stringify(data));
                 }
 
-                const message = responseBody.generation?.trim();
-                if (message !== 'Working') {
-                    const prettyResponse = JSON.stringify(responseBody, null, 2);
+                const content = data.trim();
+                if (content !== 'Working') {
+                    const prettyResponse = JSON.stringify(data, null, 2);
                     throw new Error(`API call succeeded, but the model returned an unexpected response. Expected "Working", but got:\n${prettyResponse}`);
                 }
             }, 'API key validation', provider);
@@ -362,22 +340,8 @@ export class ContractAnalyzer {
 
     if (this.provider === 'gemini') {
         this.ai = new GoogleGenAI({apiKey: this.apiKey});
-    } else if (this.provider === 'llama' && this.model === 'llama-3.3-70b-bedrock') {
-        // Parse AWS credentials from the API key
-        const [accessKeyId, secretAccessKey] = this.apiKey.split('|');
-        if (!accessKeyId || !secretAccessKey) {
-            throw new AnalysisError('Invalid AWS credentials format. Expected format: "accessKeyId|secretAccessKey"');
-        }
-        
-        this.bedrockClient = new BedrockRuntimeClient({
-            region: 'us-east-1', // Default region, can be made configurable
-            credentials: {
-                accessKeyId: accessKeyId.trim(),
-                secretAccessKey: secretAccessKey.trim()
-            }
-        });
     }
-  }
+    // Note: Bedrock is now handled via API route, no client initialization needed
 
   private getSchemaForProvider(schema: any): ApiResponseSchema {
     if (this.provider === 'gemini') {
@@ -470,97 +434,27 @@ export class ContractAnalyzer {
           // The content is a JSON string due to json_object mode, so parse it.
           return JSON.parse(content);
 
-      } else if (this.provider === 'llama' && this.model === 'llama-3.3-70b-bedrock' && this.bedrockClient) {
-          // Bedrock Llama 3.3 70B implementation
-          const prompt = `<|system|>
-${systemMessage}
-<|user|>
-${userMessage}
-<|assistant|>`;
+      } else if (this.provider === 'llama' && this.model === 'llama-3.3-70b-bedrock') {
+          // Bedrock Llama 3.3 70B implementation via API route
+          const response = await fetch('/api/bedrock/invoke', {
+              method: 'POST',
+              headers: {
+                  'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                  systemMessage,
+                  userMessage,
+                  responseSchema: convertedSchema
+              })
+          });
 
-          const requestBody = {
-              prompt: prompt,
-              max_gen_len: 8000,
-              temperature: 0.8,
-              top_p: 0.9
-          };
+          const data = await response.json();
 
-                          const command = new InvokeModelCommand({
-                    modelId: "us.meta.llama3-3-70b-instruct-v1:0",
-                    contentType: "application/json",
-                    body: JSON.stringify(requestBody)
-                });
-
-          const response = await this.bedrockClient.send(command);
-          const responseBody = JSON.parse(new TextDecoder().decode(response.body));
-
-          if (responseBody.error) {
-              throw new Error(JSON.stringify(responseBody));
+          if (!response.ok) {
+              throw new Error(JSON.stringify(data));
           }
 
-          const content = responseBody.generation;
-          if (!content) {
-              throw new Error('Bedrock API returned an empty or malformed response content. - in such instances, the chunk should have been retried!');
-          }
-
-          // Parse the JSON response from the model
-          try {
-              // Extract JSON from markdown code blocks if present
-              let jsonContent = content.trim();
-              
-              // First, try to find JSON within markdown code blocks
-              const jsonMatch = jsonContent.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
-              if (jsonMatch) {
-                  jsonContent = jsonMatch[1];
-              } else {
-                  // Try to find JSON object anywhere in the text
-                  const jsonObjectMatch = jsonContent.match(/\{[\s\S]*\}/);
-                  if (jsonObjectMatch) {
-                      jsonContent = jsonObjectMatch[0];
-                  } else {
-                      // Remove markdown code block markers if no match found
-                      if (jsonContent.startsWith('```json')) {
-                          jsonContent = jsonContent.substring(7);
-                      }
-                      if (jsonContent.startsWith('```')) {
-                          jsonContent = jsonContent.substring(3);
-                      }
-                      if (jsonContent.endsWith('```')) {
-                          jsonContent = jsonContent.substring(0, jsonContent.length - 3);
-                      }
-                  }
-              }
-              
-              // Clean up any remaining whitespace and try to parse
-              jsonContent = jsonContent.trim();
-              
-              // Additional cleanup: remove any text before the first {
-              const firstBraceIndex = jsonContent.indexOf('{');
-              if (firstBraceIndex > 0) {
-                  jsonContent = jsonContent.substring(firstBraceIndex);
-              }
-              
-              // Additional cleanup: remove any text after the last }
-              const lastBraceIndex = jsonContent.lastIndexOf('}');
-              if (lastBraceIndex >= 0 && lastBraceIndex < jsonContent.length - 1) {
-                  jsonContent = jsonContent.substring(0, lastBraceIndex + 1);
-              }
-              
-              // Additional cleanup: remove Python-style tags and other non-JSON content
-              // Remove tags like <|python_tag|>, <|system|>, <|user|>, <|assistant|>, etc.
-              jsonContent = jsonContent.replace(/<\|[^|]*\|>/g, '');
-              
-              // Remove any remaining non-JSON content that might interfere
-              // This handles cases where the model adds explanatory text or tags
-              jsonContent = jsonContent.replace(/^[^{]*/, ''); // Remove anything before first {
-              jsonContent = jsonContent.replace(/}[^}]*$/, '}'); // Remove anything after last }
-              
-              return JSON.parse(jsonContent);
-          } catch (parseError) {
-              // Handle JSON parsing errors similar to WatsonX Llama
-              console.warn('Failed to parse JSON response from Bedrock Llama:', content);
-              throw new Error(`JSON parsing failed: ${parseError instanceof Error ? parseError.message : 'Unknown error'}. Response was: ${content.substring(0, 200)}...`);
-          }
+          return data;
 
       } else if (this.provider === 'llama' && this.model === 'llama-3.3-70b-watsonx') {
           // WatsonX Llama 3.3 70B implementation
