@@ -342,6 +342,7 @@ export class ContractAnalyzer {
         this.ai = new GoogleGenAI({apiKey: this.apiKey});
     }
     // Note: Bedrock is now handled via API route, no client initialization needed
+  }
 
   private getSchemaForProvider(schema: any): ApiResponseSchema {
     if (this.provider === 'gemini') {
