@@ -7,14 +7,14 @@ export interface EnvironmentKeys {
 
 // Get environment variables (works in both browser and Node.js environments)
 function getEnvironmentVariable(key: string): string | undefined {
-  // In browser environment, check for Vite's import.meta.env
-  if (typeof import.meta !== 'undefined' && import.meta.env) {
-    return import.meta.env[key];
-  }
-  
-  // In Node.js environment, check process.env
+  // Check for process.env first (Vite defines these)
   if (typeof process !== 'undefined' && process.env) {
     return process.env[key];
+  }
+  
+  // Fallback to import.meta.env for Vite's default behavior
+  if (typeof import.meta !== 'undefined' && import.meta.env) {
+    return import.meta.env[key];
   }
   
   return undefined;
