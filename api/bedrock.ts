@@ -41,9 +41,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(500).json({ error: 'AWS credentials not configured' });
     }
 
-    // Initialize Bedrock client
+    // Initialize Bedrock client with us-west-2 region (where Bedrock is available)
     const bedrockClient = new BedrockRuntimeClient({
-      region: 'us-east-1',
+      region: 'us-west-2', // Changed from us-east-1 to us-west-2
       credentials: {
         accessKeyId: accessKeyId,
         secretAccessKey: secretAccessKey
@@ -67,12 +67,12 @@ ${userMessage}
     };
 
     const command = new InvokeModelCommand({
-      modelId: "meta.llama3-3-70b-instruct-v1:0",
+      modelId: "meta.llama3-3-70b-instruct-v1:0", // This is the correct model ID
       contentType: "application/json",
       body: JSON.stringify(requestBody)
     });
 
-    console.log('Sending Bedrock command...');
+    console.log('Sending Bedrock command with modelId:', command.input.modelId);
     const response = await bedrockClient.send(command);
     console.log('Bedrock response received');
     
