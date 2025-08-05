@@ -16,9 +16,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
+    console.log('Bedrock API called with headers:', req.headers);
+    
     const { systemMessage, userMessage } = req.body;
 
     if (!systemMessage || !userMessage) {
+      console.log('Missing parameters:', { systemMessage, userMessage });
       return res.status(400).json({ error: 'Missing required parameters' });
     }
 
@@ -26,7 +29,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const accessKeyId = process.env.VITE_BEDROCK_ACCESS_KEY_ID;
     const secretAccessKey = process.env.VITE_BEDROCK_SECRET_ACCESS_KEY;
 
+    console.log('AWS credentials check:', { 
+      hasAccessKeyId: !!accessKeyId, 
+      hasSecretAccessKey: !!secretAccessKey,
+      accessKeyIdLength: accessKeyId?.length,
+      secretAccessKeyLength: secretAccessKey?.length
+    });
+
     if (!accessKeyId || !secretAccessKey) {
+      console.log('AWS credentials not configured');
       return res.status(500).json({ error: 'AWS credentials not configured' });
     }
 
@@ -38,6 +49,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         secretAccessKey: secretAccessKey
       }
     });
+
+    console.log('Bedrock client initialized, making API call...');
 
     // Create the prompt for Llama 3.3 70B
     const prompt = `<|system|>
@@ -59,17 +72,24 @@ ${userMessage}
       body: JSON.stringify(requestBody)
     });
 
+    console.log('Sending Bedrock command...');
     const response = await bedrockClient.send(command);
+    console.log('Bedrock response received');
+    
     const responseBody = JSON.parse(new TextDecoder().decode(response.body));
 
     if (responseBody.error) {
+      console.log('Bedrock API error:', responseBody.error);
       return res.status(500).json({ error: responseBody.error });
     }
 
     const content = responseBody.generation;
     if (!content) {
+      console.log('Empty response from Bedrock');
       return res.status(500).json({ error: 'Empty response from Bedrock' });
     }
+
+    console.log('Bedrock content received, length:', content.length);
 
     // Parse the JSON response from the model
     try {
@@ -119,7 +139,10 @@ ${userMessage}
       jsonContent = jsonContent.replace(/^[^{]*/, '');
       jsonContent = jsonContent.replace(/}[^}]*$/, '}');
       
+      console.log('Parsed JSON content:', jsonContent.substring(0, 200) + '...');
+      
       const parsedResponse = JSON.parse(jsonContent);
+      console.log('Successfully parsed JSON response');
       return res.status(200).json(parsedResponse);
     } catch (parseError) {
       console.warn('Failed to parse JSON response from Bedrock:', content);
