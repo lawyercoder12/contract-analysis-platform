@@ -171,13 +171,24 @@ ${userMessage}
         stack: bedrockError instanceof Error ? bedrockError.stack : undefined
       });
       
+      // Return a more detailed error message with specific troubleshooting steps
       return res.status(500).json({ 
-        error: `Bedrock API call failed: ${bedrockError instanceof Error ? bedrockError.message : 'Unknown error'}. This might be due to: 1) AWS credentials not having Bedrock permissions, 2) Bedrock not enabled in AWS account, 3) Model access not granted.`,
+        error: `Bedrock API call failed: ${bedrockError instanceof Error ? bedrockError.message : 'Unknown error'}. 
+        
+TROUBLESHOOTING STEPS:
+1. Go to AWS Bedrock Console: https://console.aws.amazon.com/bedrock/
+2. Click "Get started" or "Enable Bedrock" if not already enabled
+3. Go to "Model access" and request access to "Meta Llama 3.3 70B Instruct"
+4. Check IAM permissions - your user needs: bedrock:InvokeModel, bedrock:InvokeModelWithResponseStream
+5. Verify the model is available in us-west-2 region
+
+The error suggests AWS credentials lack Bedrock permissions or Bedrock is not enabled in your AWS account.`,
         details: {
           modelId,
           region: 'us-west-2',
           errorCode: (bedrockError as any)?.code,
-          errorName: (bedrockError as any)?.name
+          errorName: (bedrockError as any)?.name,
+          troubleshootingUrl: 'https://console.aws.amazon.com/bedrock/'
         }
       });
     }
