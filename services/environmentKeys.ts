@@ -92,6 +92,9 @@ export function getApiKeyForModel(
   userApiKey?: string
 ): string | null {
   if (canUseEnvironmentKey(providerId, modelId)) {
+    if (providerId === 'openai' && modelId === 'gpt-oss-120b-groq') {
+      return getGroqApiKey();
+    }
     if (providerId === 'llama') {
       if (modelId === 'llama-3.3-70b-bedrock') {
         const credentials = getBedrockCredentials();
@@ -99,6 +102,9 @@ export function getApiKeyForModel(
       }
       if (modelId === 'llama-3.3-70b-watsonx') {
         return getWatsonXApiKey();
+      }
+      if (modelId === 'llama-3.3-70b-versatile') {
+        return getGroqApiKey();
       }
     }
   }
