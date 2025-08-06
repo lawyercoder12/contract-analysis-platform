@@ -3,6 +3,7 @@ export interface EnvironmentKeys {
   BEDROCK_ACCESS_KEY_ID?: string;
   BEDROCK_SECRET_ACCESS_KEY?: string;
   WATSONX_API_KEY?: string;
+  GROQ_API_KEY?: string;
 }
 
 // Get environment variables (works in both browser and Node.js environments)
@@ -13,8 +14,8 @@ function getEnvironmentVariable(key: string): string | undefined {
   }
   
   // Fallback to import.meta.env for Vite's default behavior
-  if (typeof import.meta !== 'undefined' && import.meta.env) {
-    return import.meta.env[key];
+  if (typeof import.meta !== 'undefined' && (import.meta as any).env) {
+    return (import.meta as any).env[key];
   }
   
   return undefined;
@@ -25,6 +26,7 @@ export function getEnvironmentKeys(): EnvironmentKeys {
     BEDROCK_ACCESS_KEY_ID: getEnvironmentVariable('VITE_BEDROCK_ACCESS_KEY_ID'),
     BEDROCK_SECRET_ACCESS_KEY: getEnvironmentVariable('VITE_BEDROCK_SECRET_ACCESS_KEY'),
     WATSONX_API_KEY: getEnvironmentVariable('VITE_WATSONX_API_KEY'),
+    GROQ_API_KEY: getEnvironmentVariable('VITE_GROQ_API_KEY'),
   };
 }
 
@@ -36,6 +38,11 @@ export function hasBedrockCredentials(): boolean {
 export function hasWatsonXCredentials(): boolean {
   const keys = getEnvironmentKeys();
   return !!keys.WATSONX_API_KEY;
+}
+
+export function hasGroqCredentials(): boolean {
+  const keys = getEnvironmentKeys();
+  return !!keys.GROQ_API_KEY;
 }
 
 export function getBedrockCredentials(): { accessKeyId: string; secretAccessKey: string } | null {
@@ -54,14 +61,25 @@ export function getWatsonXApiKey(): string | null {
   return keys.WATSONX_API_KEY || null;
 }
 
+export function getGroqApiKey(): string | null {
+  const keys = getEnvironmentKeys();
+  return keys.GROQ_API_KEY || null;
+}
+
 // Check if a model can use environment variables instead of user API key
 export function canUseEnvironmentKey(providerId: string, modelId: string): boolean {
+  if (providerId === 'openai' && modelId === 'gpt-oss-120b-groq') {
+    return hasGroqCredentials();
+  }
   if (providerId === 'llama') {
     if (modelId === 'llama-3.3-70b-bedrock') {
       return hasBedrockCredentials();
     }
     if (modelId === 'llama-3.3-70b-watsonx') {
       return hasWatsonXCredentials();
+    }
+    if (modelId === 'llama-3.3-70b-versatile') {
+      return hasGroqCredentials();
     }
   }
   return false;

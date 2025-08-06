@@ -25,7 +25,7 @@ export const MODELS_CONFIG: Provider[] = [
     {
         id: 'openai',
         name: 'OpenAI',
-        apiKeyName: 'OpenAI API Key',
+        apiKeyName: 'OpenAI API Key / Groq API Key',
         Icon: ({ className }) => React.createElement('svg', {
                 xmlns: "http://www.w3.org/2000/svg",
                 viewBox: "0 0 448 512",
@@ -41,6 +41,11 @@ export const MODELS_CONFIG: Provider[] = [
                 id: 'gpt-4.1-mini',
                 name: 'GPT-4.1 mini',
                 description: 'A smaller, faster, and more affordable model from OpenAI, suitable for various tasks.'
+            },
+            {
+                id: 'gpt-oss-120b-groq',
+                name: 'GPT OSS 120B - Groq',
+                description: 'GPT OSS 120B model accessed through Groq API, offering high performance for complex contract analysis.'
             }
         ]
     },
@@ -61,8 +66,8 @@ export const MODELS_CONFIG: Provider[] = [
         models: [
             {
                 id: 'llama-3.3-70b-versatile',
-                name: 'Llama 3.3 70B',
-                description: 'A powerful and versatile large language model, ideal for complex contract analysis tasks.'
+                name: 'Llama 3.3 70B - Groq',
+                description: 'Llama 3.3 70B model accessed through Groq API, offering high performance for complex contract analysis.'
             },
             {
                 id: 'llama-3.3-70b-bedrock',

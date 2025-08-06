@@ -185,14 +185,20 @@ export async function validateApiKey(apiKey: string, provider: ModelProviderId, 
         }
     } else if (provider === 'openai') {
         try {
-            const response = await fetch('https://api.openai.com/v1/chat/completions', {
+            const url = model === 'gpt-oss-120b-groq' 
+                ? 'https://api.groq.com/openai/v1/chat/completions'
+                : 'https://api.openai.com/v1/chat/completions';
+            
+            const groqModel = model === 'gpt-oss-120b-groq' ? 'openai/gpt-oss-120b' : model;
+            
+            const response = await fetch(url, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${apiKey}`
                 },
                 body: JSON.stringify({
-                    model: model,
+                    model: groqModel,
                     messages: [{ "role": "user", "content": "Just say the word Working" }],
                     max_tokens: 5,
                     temperature: 0,
@@ -432,22 +438,34 @@ export class ContractAnalyzer {
           return JSON.parse(response.text);
 
       } else if (this.provider === 'openai') {
-          const response = await fetch('https://api.openai.com/v1/chat/completions', {
+          const url = this.model === 'gpt-oss-120b-groq' 
+              ? 'https://api.groq.com/openai/v1/chat/completions'
+              : 'https://api.openai.com/v1/chat/completions';
+          
+          const groqModel = this.model === 'gpt-oss-120b-groq' ? 'openai/gpt-oss-120b' : this.model;
+          
+          const body: any = {
+              model: groqModel,
+              messages: [
+                  { role: 'system', content: systemMessage },
+                  { role: 'user', content: userMessage }
+              ],
+              temperature: 1,
+              response_format: { type: 'json_object' }
+          };
+          
+          if (this.model === 'gpt-oss-120b-groq') {
+              body.max_tokens = 32766;
+              body.top_p = 1;
+          }
+          
+          const response = await fetch(url, {
               method: 'POST',
               headers: {
                   'Content-Type': 'application/json',
                   'Authorization': `Bearer ${this.apiKey}`
               },
-              body: JSON.stringify({
-                  model: this.model,
-                  messages: [
-                      { role: 'system', content: systemMessage },
-                      { role: 'user', content: userMessage }
-                  ],
-                  temperature: 0.1,
-                  // Use JSON mode to ensure the output is a valid JSON object.
-                  response_format: { type: 'json_object' } 
-              })
+              body: JSON.stringify(body)
           });
 
           const data = await response.json();
@@ -611,22 +629,30 @@ export class ContractAnalyzer {
           }
 
       } else if (this.provider === 'llama') {
+          const body: any = {
+              model: this.model,
+              messages: [
+                  { role: 'system', content: systemMessage },
+                  { role: 'user', content: userMessage }
+              ],
+              temperature: 1,
+              response_format: { type: 'json_object' }
+          };
+          
+          if (this.model === 'llama-3.3-70b-versatile') {
+              body.max_completion_tokens = 32768;
+              body.top_p = 1;
+              body.stream = false;
+              body.stop = null;
+          }
+          
           const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
               method: 'POST',
               headers: {
                   'Content-Type': 'application/json',
                   'Authorization': `Bearer ${this.apiKey}`
               },
-              body: JSON.stringify({
-                  model: this.model,
-                  messages: [
-                      { role: 'system', content: systemMessage },
-                      { role: 'user', content: userMessage }
-                  ],
-                  temperature: 0.1,
-                  // Use JSON mode to ensure the output is a valid JSON object.
-                  response_format: { type: 'json_object' } 
-              })
+              body: JSON.stringify(body)
           });
 
           const data = await response.json();
